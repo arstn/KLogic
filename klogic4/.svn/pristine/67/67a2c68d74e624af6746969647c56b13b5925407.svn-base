@@ -1,0 +1,580 @@
+/************************************/
+/* widget methods for PropDev       */
+/*                                  */
+/* device propperties dialog        */
+/*                                  */
+/* Andreas Rostin                   */
+/* 13.11.98                         */
+/************************************/
+#include <klineedit.h>
+
+#include <qwidget.h>
+#include <qmessagebox.h>
+#include <qcheckbox.h>
+#include <qlabel.h>
+#include <qpushbutton.h>
+#include <qradiobutton.h>
+#include <QGroupBox>
+#include <QVBoxLayout>
+#include <qvalidator.h>
+
+#include "KlogicGlobal.h"
+#include "circuit.h"
+#include "xdevice.h"
+#include "device.h"
+#include "inverterw.h"
+#include "ramw.h"
+#include "dlgEqu.h"
+#include "deviceColored.h"
+#include "DeviceType.h"
+#include <CircuitWidget.h>
+
+#include "propDev.h"
+#include "propDev.moc"
+
+PropDev::PropDev(QWidget *parent, const QString& name,
+		CircuitWidget *_circuitWidget, Circuit *_dnet, XDevice *_dev) :
+		QDialog(parent, Qt::Dialog) {
+	setModal(true);
+	setWindowTitle(name);
+	QLabel *label;
+	QString value;
+
+	// object to modify in this dialog:
+	dev = _dev;
+	circuitWidget = _circuitWidget;
+	dnet = _dnet;
+
+	osize = dev->size();
+	omaster = dev->hasMaster();
+	oclock = dev->clock();
+
+	label = new QLabel(this);
+	label->setGeometry(30, 10, 43, 20);
+	label->setText(i18n("Name"));
+	devname = new KLineEdit(this);
+	devname->setEnabled(TRUE);
+
+	if (dev->type() == DeviceType::fBUS) {
+		delay = (KLineEdit *) NULL;
+	} else {
+		label = new QLabel(this);
+		label->setGeometry(30, 40, 43, 20);
+		label->setText(i18n("Delay"));
+		delay = new KLineEdit(this);
+		QIntValidator *vDelay = new QIntValidator(delay);
+		delay->setValidator(vDelay);
+		delay->setGeometry(80, 40, 40, 20);
+		delay->setMaxLength(4);
+		delay->setText(value.setNum(dev->getDelay()));
+	}
+
+	if (dev->type() == DeviceType::fBUS) {
+		cb_display_name = (QCheckBox *) NULL;
+	} else {
+		cb_display_name = new QCheckBox(i18n("display name"), this);
+		cb_display_name->setGeometry(200, 40, 100, 20);
+		if (dev->nameDisplayed())
+			cb_display_name->setChecked(TRUE);
+		else
+			cb_display_name->setChecked(FALSE);
+	}
+
+	label = new QLabel(this);
+	label->setText(i18n("Size"));
+	size = new KLineEdit(this);
+	QIntValidator *vSize = new QIntValidator(size);
+	size->setValidator(vSize);
+	if (!dev->sizeChangeable())
+		size->setEnabled(FALSE);
+
+	if (dev->type() == DeviceType::fBUS) {
+		label->setGeometry(35, 40, 32, 20);
+		size->setGeometry(80, 40, 40, 20);
+	} else {
+		label->setGeometry(35, 70, 32, 20);
+		size->setGeometry(80, 70, 40, 20);
+	}
+
+	if (dev->type() == DeviceType::fSUB || dev->type() == DeviceType::fEQU) {
+		cb_HugeWidth = new QCheckBox(i18n("Large Width"), this);
+		cb_HugeWidth->setGeometry(200, 70, 100, 20);
+		if (dev->width() == 3)
+			cb_HugeWidth->setChecked(TRUE);
+		else
+			cb_HugeWidth->setChecked(FALSE);
+	} else
+		cb_HugeWidth = (QCheckBox *) NULL;
+
+	if (dev->type() == DeviceType::fBUS) {
+		inverterw = (InverterScrollWidget *) NULL;
+	} else {
+		label = new QLabel(this);
+		label->setGeometry(190, 92, 100, 15);
+		label->setText(i18n("Inverter Setting"));
+		inverterw = new InverterScrollWidget(this, name, dev);
+		inverterw->setGeometry(190, 110, 110, 195);
+	}
+
+	if (dev->type() == DeviceType::fBUS) {
+		bg_undef = (QGroupBox *) NULL;
+		undef[0] = (QRadioButton *) NULL;
+		undef[1] = (QRadioButton *) NULL;
+	} else {
+		bg_undef = new QGroupBox(i18n("Undefined value"), this);
+		bg_undef->setGeometry(25, 102, 150, 60);
+		undef[0] = new QRadioButton(i18n("Low"));
+		undef[0]->setGeometry(30, 16, 100, 20);
+		undef[1] = new QRadioButton(i18n("High"));
+		undef[1]->setGeometry(30, 36, 100, 20);
+		if (dev->getUndefinedValue()) {
+			undef[1]->setChecked(TRUE);
+			curr_undef = 1;
+		} else {
+			undef[0]->setChecked(TRUE);
+			curr_undef = 0;
+		}
+		QVBoxLayout *vbox = new QVBoxLayout();
+		vbox->addWidget(undef[0], 0);
+		vbox->addWidget(undef[1], 1);
+		bg_undef->setLayout(vbox);
+		connect	(bg_undef, SIGNAL(clicked(int)), this, SLOT(setUndefinedValue(int)));
+	}
+
+	if (dev->type() == DeviceType::fLED) {
+		bg_invert = (QGroupBox *) NULL;
+		invert[0] = (QRadioButton *) NULL;
+		invert[1] = (QRadioButton *) NULL;
+		bg_muxDemux = (QGroupBox *) NULL;
+		rb_muxDemux[0] = (QRadioButton *) NULL;
+		rb_muxDemux[1] = (QRadioButton *) NULL;
+
+		bg_led = new QGroupBox(i18n("LED Color"), this);
+		bg_led->setGeometry(25, 175, 150, 100);
+		led_red = new QRadioButton(i18n("red"), bg_led);
+		led_red->setGeometry(30, 16, 100, 20);
+		led_blue = new QRadioButton(i18n("blue"), bg_led);
+		led_blue->setGeometry(30, 36, 100, 20);
+		led_green = new QRadioButton(i18n("green"), bg_led);
+		led_green->setGeometry(30, 56, 100, 20);
+		led_yellow = new QRadioButton(i18n("yellow"), bg_led);
+		led_yellow->setGeometry(30, 76, 100, 20);
+		switch (dev->getColor()) {
+		case LedDevice::RED:
+			led_red->setChecked(TRUE);
+			break;
+		case LedDevice::BLUE:
+			led_blue->setChecked(TRUE);
+			break;
+		case LedDevice::GREEN:
+			led_green->setChecked(TRUE);
+			break;
+		case LedDevice::YELLOW:
+			led_yellow->setChecked(TRUE);
+			break;
+		}
+		connect	(bg_led, SIGNAL(clicked(int)), this, SLOT(setLEDColor(int)));
+	} else if (dev->type() == DeviceType::fBUS) {
+		bg_led = (QGroupBox *)NULL;
+		led_red = (QRadioButton *)NULL;
+		led_blue = (QRadioButton *)NULL;
+		led_green = (QRadioButton *)NULL;
+		led_yellow = (QRadioButton *)NULL;
+		bg_invert = (QGroupBox *)NULL;
+		invert[0] = (QRadioButton *)NULL;
+		invert[1] = (QRadioButton *)NULL;
+
+		bg_muxDemux = new QGroupBox(i18n("Bus Type"), this);
+		bg_muxDemux->setGeometry(80, 70, 150, 60);
+		rb_muxDemux[0] = new QRadioButton(i18n("Fan in"), bg_muxDemux);
+		rb_muxDemux[0]->setGeometry(20,16, 120, 20);
+		rb_muxDemux[1] = new QRadioButton(i18n("Fan out"), bg_muxDemux);
+		rb_muxDemux[1]->setGeometry(20,36, 120, 20);
+		if (dev->isMux()) {
+			rb_muxDemux[1]->setChecked(TRUE);
+			curr_mux = false;
+		} else {
+			rb_muxDemux[0]->setChecked(TRUE);
+			curr_mux = true;
+		}
+		QVBoxLayout *vbox = new QVBoxLayout();
+		vbox->addWidget(rb_muxDemux[0], 0);
+		vbox->addWidget(rb_muxDemux[1], 1);
+		bg_muxDemux->setLayout(vbox);
+		if (dev->type() == DeviceType::fONE || dev->maxO() == 0) {
+			bg_muxDemux->setEnabled(FALSE);
+			rb_muxDemux[1]->setEnabled(FALSE);
+			rb_muxDemux[0]->setEnabled(FALSE);
+		}
+		connect(bg_muxDemux, SIGNAL(clicked(int)), this, SLOT(setMux(int)));
+	} else {
+		bg_led = (QGroupBox *)NULL;
+		led_red = (QRadioButton *)NULL;
+		led_blue = (QRadioButton *)NULL;
+		led_green = (QRadioButton *)NULL;
+		led_yellow = (QRadioButton *)NULL;
+		bg_muxDemux = (QGroupBox *)NULL;
+		rb_muxDemux[0] = (QRadioButton *)NULL;
+		rb_muxDemux[1] = (QRadioButton *)NULL;
+
+		bg_invert = new QGroupBox(i18n("Output always inverted"), this);
+		bg_invert->setGeometry(25, 175, 150, 60);
+		invert[0] = new QRadioButton(i18n("Not inverted"), bg_invert);
+		invert[0]->setGeometry(30,16, 100, 20);
+		invert[1] = new QRadioButton(i18n("Inverted"), bg_invert);
+		invert[1]->setGeometry(30,36, 100, 20);
+		if (dev->isInverted()) invert[1]->setChecked(TRUE);
+		else invert[0]->setChecked(TRUE);
+		QVBoxLayout *vbox = new QVBoxLayout();
+		vbox->addWidget(invert[0], 0);
+		vbox->addWidget(invert[1], 1);
+		bg_invert->setLayout(vbox);
+		if (dev->type() == DeviceType::fONE || dev->maxO() == 0) {
+			bg_invert->setEnabled(FALSE);
+			invert[1]->setEnabled(FALSE);
+			invert[0]->setEnabled(FALSE);
+		}
+		connect(bg_invert, SIGNAL(clicked(int)), this, SLOT(setInverted(int)));
+		curr_invert = dev->isInverted();
+	}
+
+	if (dev->type() == DeviceType::fEQU || dev->type() == DeviceType::fRAM) {
+		cb_enable_tristate = new QCheckBox(i18n("Tristate outputs"), this);
+		cb_enable_tristate->setGeometry(25, 250, 150, 25);
+		if (dev->isDeviceTristateEnabled())
+			cb_enable_tristate->setChecked(TRUE);
+		else
+			cb_enable_tristate->setChecked(FALSE);
+	} else {
+		cb_enable_tristate = (QCheckBox *) NULL;
+	}
+
+	if (dev->type() == DeviceType::fEQU) {
+		bEQU = new QPushButton(this);
+		bEQU->setText(i18n("Equation Editor"));
+		bEQU->setGeometry(25, 250, 150, 25);
+		cb_enable_tristate->setGeometry(25, 290, 150, 25);
+		connect(bEQU, SIGNAL(clicked()), this, SLOT(showDeviceEquations()));
+	}
+
+	if (dev->hasClock()) {
+		bg_clock = new QGroupBox(i18n("Clock Behaviour"), this);
+		if (dev->type() == DeviceType::fJK) {
+			bg_clock->setGeometry(315, 80, 160, 160);
+			clock[5] = new QRadioButton(i18n("Rising edge"), bg_clock);
+			clock[5]->setGeometry(15, 16, 140, 20);
+			clock[6] = new QRadioButton(i18n("Falling edge"), bg_clock);
+			clock[6]->setGeometry(15, 36, 140, 20);
+			clock[0] = new QRadioButton(i18n("Rising 2 edge"), bg_clock);
+			clock[0]->setGeometry(15, 56, 140, 20);
+			clock[1] = new QRadioButton(i18n("Falling 2 edge"), bg_clock);
+			clock[1]->setGeometry(15, 76, 140, 20);
+			clock[2] = new QRadioButton(i18n("High value"), bg_clock);
+			clock[2]->setGeometry(15, 96, 140, 20);
+			clock[3] = new QRadioButton(i18n("Low value"), bg_clock);
+			clock[3]->setGeometry(15, 116, 140, 20);
+			clock[4] = new QRadioButton(i18n("Disabled"), bg_clock);
+			clock[4]->setGeometry(15, 136, 140, 20);
+		} else {
+			bg_clock->setGeometry(315, 102, 160, 120);
+			clock[5] = new QRadioButton(i18n("Rising edge"), bg_clock);
+			clock[5]->setGeometry(15, 16, 140, 20);
+			clock[6] = new QRadioButton(i18n("Falling edge"), bg_clock);
+			clock[6]->setGeometry(15, 36, 140, 20);
+			clock[0] = NULL;
+			clock[1] = NULL;
+			clock[2] = new QRadioButton(i18n("High value"), bg_clock);
+			clock[2]->setGeometry(15, 56, 140, 20);
+			clock[3] = new QRadioButton(i18n("Low value"), bg_clock);
+			clock[3]->setGeometry(15, 76, 140, 20);
+			clock[4] = new QRadioButton(i18n("Disabled"), bg_clock);
+			clock[4]->setGeometry(15, 96, 140, 20);
+		}
+		curr_clock = dev->clock();
+		clock[curr_clock]->setChecked(TRUE);
+		QVBoxLayout *vbox = new QVBoxLayout();
+		vbox->addWidget(clock[5], 5);
+		vbox->addWidget(clock[6], 6);
+		vbox->addWidget(clock[2], 2);
+		vbox->addWidget(clock[3], 3);
+		vbox->addWidget(clock[4], 4);
+		if (clock[0])
+			vbox->addWidget(clock[0], 0);
+		if (clock[1])
+			vbox->addWidget(clock[1], 1);
+		bg_clock->setLayout(vbox);
+		if (!dev->hasClock()) {
+			bg_clock->setEnabled(FALSE);
+			clock[5]->setEnabled(FALSE);
+			clock[6]->setEnabled(FALSE);
+			clock[2]->setEnabled(FALSE);
+			clock[3]->setEnabled(FALSE);
+		}
+		if (dev->type() != DeviceType::fRS)
+			clock[4]->setEnabled(FALSE);
+		if (dev->hasMaster())
+			clock[4]->setEnabled(FALSE);
+		if (!dev->hasMaster()) {
+			clock[5]->setEnabled(FALSE);
+			clock[6]->setEnabled(FALSE);
+			if (clock[0])
+				clock[0]->setEnabled(FALSE);
+			if (clock[1])
+				clock[1]->setEnabled(FALSE);
+		}
+
+		bg_master = new QGroupBox(i18n("Master FF"), this);
+		bg_master->setGeometry(315, 248, 160, 60);
+		master[0] = new QRadioButton(i18n("Disabled"), bg_master);
+		master[0]->setGeometry(15, 16, 70, 20);
+		master[1] = new QRadioButton(i18n("Enabled"), bg_master);
+		master[1]->setGeometry(15, 36, 70, 20);
+		master[dev->hasMaster()]->setChecked(TRUE);
+		if (!dev->hasClock() || dev->type() == DeviceType::fJK) {
+			bg_master->setEnabled(FALSE);
+			master[0]->setEnabled(FALSE);
+			master[1]->setEnabled(FALSE);
+		}
+	} else {
+		bg_clock = (QGroupBox *) NULL;
+		bg_master = (QGroupBox *) NULL;
+	}
+
+	if (dev->type() == DeviceType::fRAM) {
+		label = new QLabel(this);
+		label->setGeometry(315, 92, 90, 15);
+		label->setText(i18n("RAM Content"));
+		ramw = new RAMScrollWidget(this, name, dev);
+		ramw->setGeometry(315, 110, RAMScrollWidget::neededWidth(), 195);
+		ramw->setBitButtons();
+		bRAMClrSet = new QPushButton(this);
+		bRAMClrSet->setGeometry(405, 92, 46, 15);
+		bRAMClrSet->setText(i18n("clear"));
+		connect(bRAMClrSet, SIGNAL(clicked()), SLOT(RAMClrSet()));
+		ram_clr = 1;
+	} else
+		ramw = (RAMScrollWidget *) NULL;
+
+	bOK = new QPushButton(this);
+	bOK->setDefault(true);
+	bOK->setText(i18n("OK"));
+
+	bCancel = new QPushButton(this);
+	bCancel->setText(i18n("Cancel"));
+
+	size->setMaxLength(2);
+	devname->setMaxLength(80);
+
+	if (dev->hasClock() || dev->type() == DeviceType::fRAM) {
+		bOK->setGeometry(165, 325, 70, 25);
+		bCancel->setGeometry(255, 325, 70, 25);
+		devname->setGeometry(80, 10, 385, 20);
+		setFixedSize(490, 360);
+	} else if (dev->type() == DeviceType::fBUS) {
+		bOK->setGeometry(90, 150, 70, 25);
+		bCancel->setGeometry(180, 150, 70, 25);
+		devname->setGeometry(80, 10, 215, 20);
+	} else {
+		bOK->setGeometry(80, 325, 70, 25);
+		bCancel->setGeometry(170, 325, 70, 25);
+		devname->setGeometry(80, 10, 215, 20);
+		setFixedSize(315, 360);
+	}
+
+	devname->setText(dev->getName());
+	size->setText(value.setNum(dev->size()));
+
+	connect(size, SIGNAL(textChanged(const QString &)), this, SLOT(setSize(const QString &)));
+	if (dev->hasClock()) {
+connect	(bg_clock, SIGNAL(clicked(int)), this, SLOT(setClock(int)));
+	connect(bg_master, SIGNAL(clicked(int)), this, SLOT(setMaster(int)));
+}
+	connect(bOK, SIGNAL(clicked()), SLOT(accept()));
+	connect(bCancel, SIGNAL(clicked()), SLOT(reject()));
+}
+
+void PropDev::done(int r) {
+	QString value;
+	int ivalue;
+
+	if (r == Accepted) {
+		// set new name
+		dnet->setDeviceName(dev->getID(), devname->text());
+
+		// delay
+		if (delay) {
+			value = delay->text();
+			ivalue = value.toInt();
+			dev->setDelay(ivalue);
+		}
+
+		// size set by signal
+
+		// switches..
+		if (bg_invert) {
+			dev->setInverted(curr_invert);
+		}
+
+		if (undef) {
+			dev->setUndefinedValue(curr_undef);
+			dev->setClock(curr_clock);
+		}
+
+		if (cb_display_name) {
+			// display the device name
+			if (cb_display_name->isChecked())
+				dev->displayName(true);
+			else
+				dev->displayName(false);
+		}
+
+		// extend width
+		if (cb_HugeWidth) {
+			if (cb_HugeWidth->isChecked()) {
+				if (dev->width() != 3)
+					dev->setWidth(3);
+			} else {
+				if (dev->width() != 2)
+					dev->setWidth(2);
+			}
+		}
+
+		if (ramw) {
+			dev->setRAMStorage(ramw->getNewRAMContent());
+			delete ramw;
+		}
+		if (cb_enable_tristate) {
+			dev->setTristate(cb_enable_tristate->isChecked());
+		}
+
+		if (dev->type() == DeviceType::fBUS && curr_mux && !dev->isMux())
+			dev->setMux(true);
+		if (dev->type() == DeviceType::fBUS && !curr_mux && dev->isMux())
+			dev->setMux(false);
+		circuitWidget->repaint();
+	} else {
+		if (dev->size() != osize) {
+			setSize(osize);
+		}
+		if (dev->hasMaster() != omaster) {
+			setMaster(omaster);
+		}
+		if (dev->clock() != oclock) {
+			setClock(oclock);
+		}
+		circuitWidget->repaint();
+	}
+	QDialog::done(r);
+}
+
+void PropDev::showDeviceEquations() {
+	DlgEqu * equation_dialog = new DlgEqu(this, i18n("Device Equation Editor"),
+			dev);
+	equation_dialog->exec();
+	delete equation_dialog;
+}
+
+void PropDev::setInverted(int invert) {
+	curr_invert = invert;
+}
+
+void PropDev::setLEDColor(int color) {
+	switch (color) {
+	case 0:
+		dev->setColor(LedDevice::RED);
+		break;
+	case 1:
+		dev->setColor(LedDevice::BLUE);
+		break;
+	case 2:
+		dev->setColor(LedDevice::GREEN);
+		break;
+	case 3:
+		dev->setColor(LedDevice::YELLOW);
+		break;
+	}
+}
+
+void PropDev::setUndefinedValue(int undef) {
+	curr_undef = undef;
+}
+
+void PropDev::setClock(int iIntClock) {
+	curr_clock = (KlogicGlobal::Device::CLOCKTYPE) iIntClock;
+	dev->setClock(curr_clock);
+	inverterw->setInputButtons();
+	inverterw->repaint();
+}
+
+void PropDev::setMaster(int m) {
+	dev->setMaster(m);
+
+	if (dev->hasMaster()) {
+		clock[5]->setEnabled(TRUE);
+		clock[6]->setEnabled(TRUE);
+		if (clock[0])
+			clock[0]->setEnabled(TRUE);
+		if (clock[1])
+			clock[1]->setEnabled(TRUE);
+		clock[4]->setEnabled(FALSE);
+		if (curr_clock == KlogicGlobal::Device::CLK_NONE) {
+			clock[6]->setChecked(TRUE);
+			curr_clock = KlogicGlobal::Device::CLK_FALLING_1EDGE;
+			dev->setClock(curr_clock);
+			inverterw->setInputButtons();
+		}
+	} else {
+		clock[5]->setEnabled(FALSE);
+		if (curr_clock == KlogicGlobal::Device::CLK_RISING_1EDGE
+				|| curr_clock == KlogicGlobal::Device::CLK_RISING_2EDGE) {
+			clock[2]->setChecked(TRUE);
+			curr_clock = KlogicGlobal::Device::CLK_HIGH_VALUE;
+			dev->setClock(curr_clock);
+		}
+		clock[6]->setEnabled(FALSE);
+		if (curr_clock == KlogicGlobal::Device::CLK_FALLING_1EDGE
+				|| curr_clock == KlogicGlobal::Device::CLK_FALLING_2EDGE) {
+			clock[3]->setChecked(TRUE);
+			curr_clock = KlogicGlobal::Device::CLK_LOW_VALUE;
+			dev->setClock(curr_clock);
+		}
+		if (clock[0])
+			clock[0]->setEnabled(FALSE);
+		if (clock[1])
+			clock[1]->setEnabled(FALSE);
+		if (dev->type() == DeviceType::fRS)
+			clock[4]->setEnabled(TRUE);
+	}
+	dev->setImage();
+	inverterw->repaint();
+}
+
+void PropDev::setSize(const QString& value) {
+	setSize(value.toInt());
+}
+
+void PropDev::setSize(int isize) {
+	dev->setSize(isize);
+	dev->setImage();
+	if (inverterw)
+		inverterw->repaint();
+}
+
+// private slot
+void PropDev::ramClrSet() {
+	if (ram_clr) {
+		ram_clr = 0;
+		bRAMClrSet->setText(i18n("set"));
+		ramw->setRAM(0);
+	} else {
+		ram_clr = 1;
+		bRAMClrSet->setText(i18n("clear"));
+		ramw->setRAM(255);
+	}
+}
+
+// private slot
+void PropDev::setMux(int new_mux_type) {
+	curr_mux = (new_mux_type != 0);
+}
+

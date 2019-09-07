@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gui name="klogic"
+     version="1"
+     xmlns="http://www.kde.org/standards/kxmlgui/1.0"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="http://www.kde.org/standards/kxmlgui/1.0
+                         http://www.kde.org/standards/kxmlgui/1.0/kxmlgui.xsd" >
+ 
+  <MenuBar>
+    <Menu name="file" >
+      <Action name="actionLibraryMaintenance" />
+    </Menu>
+    <Menu name="logic">
+      <text>&amp;Logic</text>
+      <!-- hmm. group and toolTip attributes are ignored and must be coded by hand? -->
+      <Action group="ID002" name="actionSelectionMode" toolTip="Select, copy and paste groups of devices and wires."/>
+      <Action group="ID002" name="actionConnectionMode" toolTip="Connect devices using wires."/>
+      <Action group="ID002" name="actionfEQuation" toolTip="Equation device with boolean algebra formulas."/>
+      <Action group="ID002" name="actionfAND" toolTip="AND device. Output becomes true if all inputs are true."/>
+      <Action group="ID002" name="actionfNAND" toolTip="NAND device. Output becomes false if all inputs are true."/>
+      <Action group="ID002" name="actionfOR" toolTip="OR device. Output becomes true if one or more inputs are true."/>
+      <Action group="ID002" name="actionfNOR" toolTip="NOR device. Output becomes false if one or more inputs are true."/>
+      <Action group="ID002" name="actionfXOR" toolTip="XOR device. Output becomes true if exactly one input is true."/>
+      <Action group="ID002" name="actionfNOT" toolTip="NOT device. Output becomes true if input is false."/>
+      <Action group="ID002" name="actionfRS"/>
+      <Action group="ID002" name="actionfJK"/>
+      <Action group="ID002" name="actionfDFF"/>
+      <Action group="ID002" name="actionfTFF"/>
+      <Action group="ID002" name="actionfRAM"/>
+      <Action group="ID002" name="actionfTRI"/>
+      <Action group="ID002" name="actionfBUS"/>
+      <Action group="ID002" name="actionfOSC"/>
+      <Action group="ID002" name="actionfSWI"/>
+      <Action group="ID002" name="actionfSS"/>
+      <Action group="ID002" name="actionfLED"/>
+      <Action group="ID002" name="actionfPWR"/>
+      <Action group="ID002" name="actionfTXT"/>
+      <Action group="ID002" name="actionfSUB"/>
+      <Action group="ID002" name="actionFromLib"/>
+      <Action name="actionfIN"/>
+      <Action name="actionfOUT"/>
+    </Menu>
+  </MenuBar>
+ 
+  <ToolBar name="simulationToolBar" iconText="icononly">
+    <text>Simulation Functions</text>
+    <Action group="ID004" name="actionOscilloscope"/>
+    <Action group="ID004" name="actionSingleStep"/>
+    <Action group="ID004" name="actionAutoStep"/>
+    <!-- custom widgets follow. -->
+  </ToolBar>
+  
+  <ToolBar name="libraryToolBar" iconText="icononly">
+    <text>Library Functions</text>
+    <Action group="ID004" name="actionLibraryMaintenance" toolTip="Store and restore sub circuits in a library."/>
+    <!-- custom widgets follow. -->
+  </ToolBar>
+  
+  <ToolBar name="logicToolBar" iconText="icononly">
+    <text>Build Circuits</text>
+    <Action group="ID001" name="actionSelectionMode" toolTip="Select, copy and paste groups of devices and wires."/>
+    <Action group="ID001" name="actionConnectionMode" toolTip="Drop selected devices and connect them together."/>
+    <Action name="actionfEQuation" />
+    <Action name="actionfAND"/>
+<!--	<Separator lineSeparator="true"/>  all such are ignored??? -->
+    <Action name="actionfNAND"/>
+    <Action name="actionfOR"/>
+    <Action name="actionfNOR"/>
+    <Action name="actionfXOR"/>
+    <Action name="actionfNOT"/>
+    <Action name="actionfRS"/>
+    <Action name="actionfJK"/>
+    <Action name="actionfDFF"/>
+    <Action name="actionfTFF"/>
+    <Action name="actionfRAM"/>
+    <Action name="actionfTRI"/>
+    <Action name="actionfBUS"/>
+    <Action name="actionfOSC"/>
+    <Action name="actionfSWI"/>
+    <Action name="actionfSS"/>
+    <Action name="actionfLED"/>
+    <Action name="actionfPWR"/>
+    <Action name="actionfTXT"/>
+    <Action name="actionfSUB"/>
+    <Action name="actionFromLib"/>
+    <!-- hidden Actions; they appear in all client windows if in a sub circuit: -->
+    <Action name="actionfIN"/>
+    <Action name="actionfOUT"/>
+  </ToolBar>
+</gui>

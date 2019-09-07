@@ -1,0 +1,129 @@
+/***************************************************************************
+ *   Copyright (C) %{CURRENT_YEAR} by %{AUTHOR} <%{EMAIL}>                            *
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ *   You should have received a copy of the GNU General Public License     *
+ *   along with this program; if not, write to the                         *
+ *   Free Software Foundation, Inc.,                                       *
+ *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA .        *
+ ***************************************************************************/
+
+#ifndef KLOGIC4_H
+#define KLOGIC4_H
+
+
+#include <KXmlGuiWindow>
+
+#include "ui_MainWidget.h"
+#include "ScrollableCircuitWidget.h"
+
+class MainWidget;
+class KToggleAction;
+class CircuitWidget;
+
+/**
+ * This class serves as the main window for klogic4.  It handles the
+ * menus, toolbars and status bars.
+ *
+ * @short Main window class
+ * @author %{AUTHOR} <%{EMAIL}>
+ * @version %{VERSION}
+ */
+class klogic4 : public KXmlGuiWindow
+{
+    Q_OBJECT
+public:
+    klogic4();
+    virtual ~klogic4();
+
+    static const int simModePERMANENT = 995;
+    static const int simModeSINGLE_STEP = 996;
+    
+    static const int modeCONNECT = 997;
+    static const int modeSELECT = 998;
+    static const int modeDROP = 999;
+    
+    static const int MIN_SIMSTEPTIME = 1;
+    static const int MAX_SIMSTEPTIME = 400;
+    static const int MIN_SIMBURST = 1;
+    static const int MAX_SIMBURST = 99999;
+
+    static int getFunction();
+    static int getMode();
+    static int getSimulationMode();
+    
+    static int getSimStepTime();
+    static int getSimBurstCount();
+
+public slots:
+	static void setSimStepTime(int);
+	static void setSimBurstCount(int);
+
+private slots:
+	void newCircuit();
+    void openFile();
+    void saveFile();
+    void saveFileAs();
+    
+    void openLibraryMaintenance();
+    
+    void selectionMode();
+    void connectionMode();
+    // drop modes
+    void fEQUATION();
+    void fAND();
+    void fNAND();
+    void fOR();
+    void fNOR();
+    void fXOR();
+    void fNOT();
+    void fRS();
+    void fJK();
+    void fDFF();
+    void fTFF();
+    void fRAM();
+    void fTRI();
+    void fBUS();
+    void fOSC();
+    void fSWI();
+    void fSS();
+    void fLED();
+    void fPWR();
+    void fTXT();
+    void fSUB();
+    void fIN();
+    void fOUT();
+    
+    // simulation modes
+    void setSimPermanent();
+    void setSimStepByStep();
+
+private:
+    void setupActions();
+    void performInitialSettings();
+    KToolBar * createSpeedToolBar();
+private:
+    ScrollableCircuitWidget *scrollableCircuitWidget;
+
+    QPrinter   *m_printer;
+    KToggleAction *m_toolbarAction;
+    KToggleAction *m_statusbarAction;
+    
+    void kde4ActionFanCatcher(const int);
+    
+    static int function;		// Either a device ID (DROP mode) or the DRAW/SELECT mode constant
+    static int simulationMode;		// simModePERMANENT or simModeSINGLE_STEP
+    static int simulationStepTime;	// This is how fast simModePERMANENT runs
+    static int simulationBurstCount;	// Reduce/eliminate device delays by doing multiple calulations steps within one step
+};
+
+#endif // _KLOGIC4_H_

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gui name="klogic4"
+     version="1"
+     xmlns="http://www.kde.org/standards/kxmlgui/1.0"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="http://www.kde.org/standards/kxmlgui/1.0
+                         http://www.kde.org/standards/kxmlgui/1.0/kxmlgui.xsd" >
+ 
+  <MenuBar>
+    <Menu name="file" >
+      <Action name="actionLibraryMaintenance" />
+    </Menu>
+    <Menu name="logic">
+      <text>&amp;Logic</text>
+      <!-- hmm. group and toolTip attributes are ignored and must be coded by hand? -->
+      <Action group="ID001" name="actionSelectionMode" toolTip="Select, copy and paste groups of devices and wires."/>
+      <Action group="ID002" name="actionConnectionMode" toolTip="Drop selected devices and connect them together."/>
+      <Action group="ID002" name="actionfEQuation"/>
+      <Action group="ID002" name="actionfAND"/>
+      <Action group="ID002" name="actionfNAND"/>
+      <Action group="ID002" name="actionfOR"/>
+      <Action group="ID002" name="actionfNOR"/>
+      <Action group="ID002" name="actionfXOR"/>
+      <Action group="ID002" name="actionfNOT"/>
+      <Action group="ID002" name="actionfRS"/>
+      <Action group="ID002" name="actionfJK"/>
+      <Action group="ID002" name="actionfDFF"/>
+      <Action group="ID002" name="actionfTFF"/>
+      <Action group="ID002" name="actionfRAM"/>
+      <Action group="ID002" name="actionfTRI"/>
+      <Action group="ID002" name="actionfBUS"/>
+      <Action group="ID002" name="actionfOSC"/>
+      <Action group="ID002" name="actionfSWI"/>
+      <Action group="ID002" name="actionfSS"/>
+      <Action group="ID002" name="actionfLED"/>
+      <Action group="ID002" name="actionfPWR"/>
+      <Action group="ID002" name="actionfTXT"/>
+      <Action group="ID002" name="actionfSUB"/>
+      <Action group="ID002" name="actionfIN"/>
+      <Action group="ID002" name="actionfOUT"/>
+    </Menu>
+  </MenuBar>
+ 
+  <ToolBar name="mainToolBar" iconText="icononly">
+    <text>Main Toolbar</text>
+    <Action group="ID001" name="actionSelectionMode" toolTip="Select, copy and paste groups of devices and wires."/>
+    <Action group="ID001" name="actionConnectionMode" toolTip="Drop selected devices and connect them together."/>
+  </ToolBar>
+  <ToolBar name="logicToolBar" iconText="icononly">
+    <text>Logic Toolbar</text>
+    <Action name="actionfEQuation" />
+    <Action name="actionfAND"/>
+    <Action name="actionfNAND"/>
+    <Action name="actionfOR"/>
+    <Action name="actionfNOR"/>
+    <Action name="actionfXOR"/>
+    <Action name="actionfNOT"/>
+    <Action name="actionfRS"/>
+    <Action name="actionfJK"/>
+    <Action name="actionfDFF"/>
+    <Action name="actionfTFF"/>
+    <Action name="actionfRAM"/>
+    <Action name="actionfTRI"/>
+    <Action name="actionfBUS"/>
+    <Action name="actionfOSC"/>
+    <Action name="actionfSWI"/>
+    <Action name="actionfSS"/>
+    <Action name="actionfLED"/>
+    <Action name="actionfPWR"/>
+    <Action name="actionfTXT"/>
+    <Action name="actionfSUB"/>
+    <Action name="actionfIN"/>
+    <Action name="actionfOUT"/>
+  </ToolBar>
+ 
+</gui>

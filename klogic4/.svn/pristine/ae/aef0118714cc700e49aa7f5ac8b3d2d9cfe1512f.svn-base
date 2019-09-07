@@ -1,0 +1,577 @@
+/***************************************************************************
+ *   Copyright (C) %{CURRENT_YEAR} by %{AUTHOR} <%{EMAIL}>                            *
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ *   You should have received a copy of the GNU General Public License     *
+ *   along with this program; if not, write to the                         *
+ *   Free Software Foundation, Inc.,                                       *
+ *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA .        *
+ ***************************************************************************/
+
+#include <qpainter.h>
+#include <qprinter.h>
+#include <qscrollarea.h>
+#include <qslider.h>
+#include <qdebug.h>
+#include <qlayout.h>
+#include <qtoolbar.h>
+
+#include <KConfigDialog>
+#include <KStatusBar>
+
+#include <KAction>
+#include <KActionCollection>
+#include <KStandardAction>
+#include <KFileDialog>
+#include <KToolBar>
+
+#include <KLocale>
+#include <kmenubar.h>
+
+#include "klogic4.h"
+#include "KlogicGlobal.h"
+#include "settings.h"
+#include "DeviceType.h"
+#include "CircuitWidget.h"
+#include "ClientWidget.h"
+
+int klogic4::simulationMode = 0;
+int klogic4::simulationStepTime = 100;
+int klogic4::simulationBurstCount = 0;
+int klogic4::function = 0;
+QAction *klogic4::fINAction = 0;
+QAction *klogic4::fOUTAction = 0;
+list<ClientWidget *> klogic4::additionalClientWidgets;
+
+klogic4::klogic4()
+        : KXmlGuiWindow(),
+          clientWidget(new ClientWidget()),
+        m_printer(0)
+{
+    // accept dnd
+    setAcceptDrops(true);
+
+    // tell the KXmlGuiWindow that this is indeed the main widget
+    setCentralWidget(clientWidget);
+
+    // then, setup our actions
+    setupActions();
+
+    // add a status bar
+    statusBar()->show();
+
+    // a call to KXmlGuiWindow::setupGUI() populates the GUI
+    // with actions, using KXMLGUI.
+    // It also applies the saved mainwindow settings, if any, and ask the
+    // mainwindow to automatically save settings if changed: window size,
+    // toolbar position, icon size, etc.
+    setupGUI(Default, "klogic4ui.rc");
+
+    // Do initial KLogic settings
+    performInitialSettings();
+
+    createSpeedToolBar();
+}
+
+klogic4::~klogic4()
+{
+}
+
+void klogic4::performInitialSettings() {
+	setSimStepTime(100);
+	setSimBurstCount(1);
+	setSimPermanent();
+	CircuitWidget::simulationParametersChanged();
+	connect(clientWidget->getCircuitWidget(), SIGNAL(circuitDeleted(Circuit *)), this, SLOT(circuitDeleted(Circuit *)));
+	connect(clientWidget->getCircuitWidget(), SIGNAL(openClientWidget(Circuit *)), this, SLOT(openClientWidget(Circuit *)));
+	connect(clientWidget, SIGNAL(clientWidgetClosed(ClientWidget *)), this, SLOT(clientWidgetClosed(ClientWidget *)));
+	connect(clientWidget->getCircuitWidget(), SIGNAL(circuitChanged(Circuit *)), this, SLOT(repaintClientWidgets(Circuit *)));
+	connect(clientWidget->getCircuitWidget(), SIGNAL(simStepped()), this, SLOT(repaintClientWidgets()));
+	additionalClientWidgets.push_back(clientWidget);
+}
+
+KToolBar * klogic4::createSpeedToolBar() {
+	KToolBar *tb = toolBar("speedToolBar");
+	QSlider *slider = new QSlider();
+	slider->setOrientation(Qt::Horizontal);
+	slider->setRange(KlogicGlobal::SIMSTEPTIME_MIN, KlogicGlobal::SIMSTEPTIME_MAX);
+	slider->setSliderPosition(getSimStepTime());
+	slider->setInvertedAppearance(true);
+	connect(slider, SIGNAL(valueChanged(int)), this, SLOT(setSimStepTime(int)));
+	tb->addWidget(slider);
+	return tb;
+}
+
+void klogic4::setupActions()
+{
+    // that appers in the menu <file> by KDE4 magic
+    KStandardAction::openNew(this, SLOT(newCircuit()), actionCollection());
+    KStandardAction::open(this, SLOT(openFile()), actionCollection());
+    KStandardAction::save(this, SLOT(saveFile()), actionCollection());
+    KStandardAction::saveAs(this, SLOT(saveFileAs()), actionCollection());
+    KStandardAction::print(this, SLOT(print()), actionCollection());
+    KStandardAction::quit(this, SLOT(closeAllWindows()), actionCollection());
+
+    // Iterations are not welcome here somehow.. Always the same stupid code.. And grouping by hand??
+    KAction *action = new KAction(KIcon("klogic4-library-maintenance"), i18n("&Library Maintenance .."), this);
+    action->setShortcut(Qt::CTRL + Qt::Key_L);
+    actionCollection()->addAction("actionLibraryMaintenance", action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(openLibraryMaintenance()));
+
+    QActionGroup *functionActionGroup = new QActionGroup(this);
+    action = new KAction(KIcon("klogic4-fSELECT"), i18n("&Selection Mode"), this);
+    action->setShortcut(Qt::CTRL + Qt::Key_S);
+    action->setToolTip("Select, copy and paste groups of devices and wires.");
+    action->setCheckable(true);
+    actionCollection()->addAction("actionSelectionMode", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(selectionMode()));
+
+    action = new KAction(KIcon("klogic4-fCONNECT"), i18n("&Connection Mode"), this);
+    action->setShortcut(Qt::CTRL + Qt::Key_C);
+    action->setToolTip("Drop selected devices and connect them together.");
+    action->setCheckable(true);
+    actionCollection()->addAction("actionConnectionMode", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(connectionMode()));
+    action->setChecked(true);
+    connectionMode();
+    
+    action = new KAction(KIcon("klogic4-fEQUATION"), i18n("&Equation"), this);
+    action->setShortcut(Qt::CTRL + Qt::Key_E);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfEQuation", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fEQUATION()));
+
+    action = new KAction(KIcon("klogic4-fAND"), i18n("&AND"), this);
+    action->setShortcut(Qt::CTRL + Qt::Key_A);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfAND", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fAND()));
+
+    action = new KAction(KIcon("klogic4-fNAND"), i18n("&NAND"), this);
+    action->setShortcut(Qt::CTRL + Qt::Key_N);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfNAND", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fNAND()));
+
+    action = new KAction(KIcon("klogic4-fOR"), i18n("&OR"), this);
+    action->setShortcut(Qt::CTRL + Qt::Key_O);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfOR", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fOR()));
+
+    action = new KAction(KIcon("klogic4-fNOR"), i18n("NOR"), this);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfNOR", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fNOR()));
+
+    action = new KAction(KIcon("klogic4-fXOR"), i18n("&XOR"), this);
+    action->setShortcut(Qt::CTRL + Qt::Key_X);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfXOR", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fXOR()));
+
+    action = new KAction(KIcon("klogic4-fNOT"), i18n("&Inverter"), this);
+    action->setShortcut(Qt::CTRL + Qt::Key_I);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfNOT", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fNOT()));
+
+    action = new KAction(KIcon("klogic4-fRS.png"), i18n("&RS flipflop"), this);
+    action->setShortcut(Qt::CTRL + Qt::Key_R);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfRS", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fRS()));
+
+    action = new KAction(KIcon("klogic4-fJK.png"), i18n("&JK flipflop"), this);
+    action->setShortcut(Qt::CTRL + Qt::Key_J);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfJK", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fJK()));
+
+    action = new KAction(KIcon("klogic4-fDFF.png"), i18n("&D flipflop"), this);
+    action->setShortcut(Qt::CTRL + Qt::Key_D);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfDFF", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fDFF()));
+
+    action = new KAction(KIcon("klogic4-fTFF.png"), i18n("&T flipflop"), this);
+    action->setShortcut(Qt::CTRL + Qt::Key_T);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfTFF", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fTFF()));
+
+    action = new KAction(KIcon("klogic4-fRAM.png"), i18n("RA&M 32x8"), this);
+    action->setShortcut(Qt::CTRL + Qt::Key_M);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfRAM", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fRAM()));
+
+    action = new KAction(KIcon("klogic4-fTRI.png"), i18n("Tristate output"), this);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfTRI", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fTRI()));
+
+    action = new KAction(KIcon("klogic4-fBUS.png"), i18n("Bus Connector"), this);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfBUS", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fBUS()));
+
+    action = new KAction(KIcon("klogic4-fOSC.png"), i18n("Os&cillator"), this);
+    action->setShortcut(Qt::CTRL + Qt::Key_C);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfOSC", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fOSC()));
+
+    action = new KAction(KIcon("klogic4-fSWI.png"), i18n("&Switch"), this);
+    action->setShortcut(Qt::CTRL + Qt::Key_S);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfSWI", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fSWI()));
+
+    action = new KAction(KIcon("klogic4-fSS.png"), i18n("&7-Segment"), this);
+    action->setShortcut(Qt::CTRL + Qt::Key_7);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfSS", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fSS()));
+
+    action = new KAction(KIcon("klogic4-fLED.png"), i18n("&LED"), this);
+    action->setShortcut(Qt::CTRL + Qt::Key_L);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfLED", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fLED()));
+
+    action = new KAction(KIcon("klogic4-fPWR.png"), i18n("&Voltage Connector"), this);
+    action->setShortcut(Qt::CTRL + Qt::Key_V);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfPWR", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fPWR()));
+
+    action = new KAction(KIcon("klogic4-fTXT.png"), i18n("&Text"), this);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfTXT", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fTXT()));
+
+    action = new KAction(KIcon("klogic4-fSUB.png"), i18n("Sub-Circuit"), this);
+    action->setCheckable(true);
+    actionCollection()->addAction("actionfSUB", action);
+    functionActionGroup->addAction(action);
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(fSUB()));
+
+    fINAction = new KAction(KIcon("klogic4-fIN.png"), i18n("&Input"), this);
+    fINAction->setCheckable(true);
+    functionActionGroup->addAction(fINAction);
+
+    fOUTAction = new KAction(KIcon("klogic4-fOUT.png"), i18n("&Output"), this);
+    fOUTAction->setCheckable(true);
+    functionActionGroup->addAction(fOUTAction);
+}
+
+void klogic4::openClientWidget(Circuit *circuit) {
+	ClientWidget *widget = new ClientWidget(circuit);
+	widget->setVisible(true);
+	additionalClientWidgets.push_back(widget);
+	connect(widget->getCircuitWidget(), SIGNAL(circuitDeleted(Circuit *)), this, SLOT(circuitDeleted(Circuit *)));
+	connect(widget->getCircuitWidget(), SIGNAL(openClientWidget(Circuit *)), this, SLOT(openClientWidget(Circuit *)));
+	connect(widget, SIGNAL(clientWidgetClosed(ClientWidget *)), this, SLOT(clientWidgetClosed(ClientWidget *)));
+	connect(widget->getCircuitWidget(), SIGNAL(circuitChanged(Circuit *)), this, SLOT(repaintClientWidgets(Circuit *)));
+	qDebug() << "client widget opened:" << widget;
+}
+
+void klogic4::clientWidgetClosed(ClientWidget *widget) {
+	additionalClientWidgets.remove(widget);
+	disconnect(widget->getCircuitWidget(), SIGNAL(circuitDeleted(Circuit *)), this, SLOT(circuitDeleted(Circuit *)));
+	disconnect(widget->getCircuitWidget(), SIGNAL(openClientWidget(Circuit *)), this, SLOT(openClientWidget(Circuit *)));
+	disconnect(widget, SIGNAL(clientWidgetClosed(ClientWidget *)), this, SLOT(clientWidgetClosed(ClientWidget *)));
+	disconnect(clientWidget->getCircuitWidget(), SIGNAL(circuitChanged(Circuit *)), this, SLOT(repaintClientWidgets(Circuit *)));
+	qDebug() << "client widget closed:" << widget;
+}
+
+void klogic4::newCircuit()
+{
+    if (clientWidget->getCircuitWidget()->isChanged()) {
+      saveFile();
+    }
+    clientWidget->getCircuitWidget()->newCircuit();
+    QFileInfo fi(KlogicGlobal::CurrentCircuit::filename);
+    KlogicGlobal::CurrentCircuit::filename = fi.dir().path() + "/" + KlogicGlobal::Klogic::emptyFileName;
+    setPlainCaption(KlogicGlobal::Klogic::Name + " - " + KlogicGlobal::Klogic::emptyFileName);
+}
+
+void klogic4::openFile() {
+    QFileInfo fi(KlogicGlobal::CurrentCircuit::filename);
+    QString new_filename = KFileDialog::getOpenFileName(KUrl(fi.dir().path()), "*.circuit");
+    if (!new_filename.isEmpty()) {
+        /* TODO      closeAllClients(); */
+        int i = clientWidget->getCircuitWidget()->openCircuit(new_filename);
+        if (i > 0) {
+	    KlogicGlobal::CurrentCircuit::filename = new_filename;
+	    if (i == 1) {	// not a subcircuit
+		fi.setFile(KlogicGlobal::CurrentCircuit::filename);
+        	setPlainCaption(KlogicGlobal::Klogic::Name + " - " + fi.fileName());
+	    }
+        } else {
+	    KlogicGlobal::CurrentCircuit::filename = new_filename;
+	    fi.setFile(KlogicGlobal::CurrentCircuit::filename);
+	    setPlainCaption(KlogicGlobal::Klogic::Name + " - " + fi.fileName());
+        }
+    }
+}
+
+void klogic4::saveFile() {
+    // save-command: always save toplevel circuit!
+    QFileInfo fi(KlogicGlobal::CurrentCircuit::filename);
+    if (fi.exists()) {
+    	clientWidget->getCircuitWidget()->saveCircuit(KlogicGlobal::CurrentCircuit::filename, false);
+        setPlainCaption(KlogicGlobal::Klogic::Name + " - " + fi.fileName());
+    } else {
+        saveFileAs();
+    }
+}
+
+void klogic4::saveFileAs() {
+    // save-as-command: ask for saving sub circuit
+    bool save_as_sub = clientWidget->getCircuitWidget()->saveAsSubCircuit();
+    QFileInfo fi(KlogicGlobal::CurrentCircuit::filename);
+    QString new_filename = KFileDialog::getSaveFileName(KUrl(fi.dir().path()), "*.circuit");
+    if (!new_filename.isEmpty()) {
+    	clientWidget->getCircuitWidget()->saveCircuit(new_filename, save_as_sub);
+        KlogicGlobal::CurrentCircuit::filename = new_filename;
+        fi.setFile(KlogicGlobal::CurrentCircuit::filename);
+        setPlainCaption(KlogicGlobal::Klogic::Name + " - " + fi.fileName());
+    }
+}
+
+
+void klogic4::openLibraryMaintenance() {
+}
+
+void klogic4::selectionMode() {
+    kde4ActionFanCatcher(klogic4::modeSELECT);
+}
+
+void klogic4::connectionMode() {
+    kde4ActionFanCatcher(klogic4::modeCONNECT);
+}
+
+void klogic4::fEQUATION() {
+    kde4ActionFanCatcher(DeviceType::fEQU);
+}
+void klogic4::fAND() {
+    kde4ActionFanCatcher(DeviceType::fAND);
+}
+void klogic4::fNAND() {
+    kde4ActionFanCatcher(DeviceType::fNAND);
+}
+void klogic4::fOR() {
+    kde4ActionFanCatcher(DeviceType::fOR);
+}
+void klogic4::fNOR() {
+    kde4ActionFanCatcher(DeviceType::fNOR);
+}
+void klogic4::fXOR() {
+    kde4ActionFanCatcher(DeviceType::fXOR);
+}
+void klogic4::fNOT() {
+    kde4ActionFanCatcher(DeviceType::fINV_INTERNAL);
+}
+void klogic4::fRS() {
+    kde4ActionFanCatcher(DeviceType::fRS);
+}
+void klogic4::fJK() {
+    kde4ActionFanCatcher(DeviceType::fJK);
+}
+void klogic4::fDFF() {
+    kde4ActionFanCatcher(DeviceType::fDFF);
+}
+void klogic4::fTFF() {
+    kde4ActionFanCatcher(DeviceType::fTFF);
+}
+void klogic4::fRAM() {
+    kde4ActionFanCatcher(DeviceType::fRAM);
+}
+void klogic4::fTRI() {
+    kde4ActionFanCatcher(DeviceType::fTRI);
+}
+void klogic4::fBUS() {
+    kde4ActionFanCatcher(DeviceType::fBUS);
+}
+void klogic4::fOSC() {
+    kde4ActionFanCatcher(DeviceType::fOSC);
+}
+void klogic4::fSWI() {
+    kde4ActionFanCatcher(DeviceType::fSWI);
+}
+void klogic4::fSS() {
+    kde4ActionFanCatcher(DeviceType::fSS);
+}
+void klogic4::fLED() {
+    kde4ActionFanCatcher(DeviceType::fLED);
+}
+void klogic4::fPWR() {
+    kde4ActionFanCatcher(DeviceType::fPWR);
+}
+void klogic4::fTXT() {
+    kde4ActionFanCatcher(DeviceType::fTXT);
+}
+void klogic4::fSUB() {
+    kde4ActionFanCatcher(DeviceType::fSUB);
+}
+// Called by ClientWidget::fIN
+void klogic4::setFunctionfIN() {
+    kde4ActionFanCatcher(DeviceType::fIN);
+    fINAction->setChecked(true);
+}
+// Called by ClientWidget::fOUT
+void klogic4::setFunctionfOUT() {
+    kde4ActionFanCatcher(DeviceType::fOUT);
+    fOUTAction->setChecked(true);
+}
+
+void klogic4::kde4ActionFanCatcher(const int newFunction) {
+    function = newFunction;
+    //    clientWidget->getCircuitWidget()->activateSelectionMode(function == klogic4::modeSELECT);
+    qDebug() << "function selected:" << function;
+
+    for (list<ClientWidget *>::iterator iter = additionalClientWidgets.begin(); iter != additionalClientWidgets.end(); iter++) {
+    	ClientWidget *cw = *iter;
+    	cw->applyFunctionToGUI(newFunction);
+    }
+}
+
+void klogic4::circuitDeleted(Circuit *circuit) {
+	list<ClientWidget *>::iterator iter = additionalClientWidgets.begin();
+    while (iter != additionalClientWidgets.end()) {
+    	ClientWidget *cw = *iter;
+    	bool iterMod = false;
+    	if (cw == clientWidget) {
+    		while (cw->getCircuitWidget()->contained(circuit)) {
+    			cw->getCircuitWidget()->toParentCircuit();
+    		}
+    	} else {
+    		qDebug() << "Analyzing " << cw;
+    		if (cw->getCircuitWidget()->contained(circuit)) {
+    			cw->setVisible(false);
+    			cw->close();
+    			additionalClientWidgets.remove(cw);
+    			iterMod = true;
+    		}
+    	}
+    	if (iterMod) {
+    		iter = additionalClientWidgets.begin();
+    	} else {
+    		iter++;
+    	}
+    }
+}
+
+void klogic4::repaintClientWidgets(Circuit *circuit) {
+	list<ClientWidget *>::iterator iter = additionalClientWidgets.begin();
+    while (iter != additionalClientWidgets.end()) {
+    	ClientWidget *clientWidget = *iter;
+    	if (clientWidget->getCircuitWidget()->getActiveCircuit() == circuit) {
+    		clientWidget->getCircuitWidget()->repaint();
+    	}
+    	iter++;
+    }
+}
+
+void klogic4::repaintClientWidgets() {
+	list<ClientWidget *>::iterator iter = additionalClientWidgets.begin();
+    while (iter != additionalClientWidgets.end()) {
+    	ClientWidget *clientWidget = *iter;
+   		clientWidget->getCircuitWidget()->repaint();
+    	iter++;
+    }
+}
+
+void klogic4::setSimPermanent() {
+    simulationMode = simModePERMANENT;
+    qDebug() << "simulation mode selected:" << simulationMode;
+    CircuitWidget::simulationParametersChanged();
+}
+
+void klogic4::setSimStepByStep() {
+    simulationMode = simModeSINGLE_STEP;
+    qDebug() << "simulation mode selected:" << simulationMode;
+    CircuitWidget::simulationParametersChanged();
+}
+
+void klogic4::setSimStepTime(int newTime) {
+    simulationStepTime = newTime;
+    qDebug() << "simulation time changed:" << simulationStepTime;
+    CircuitWidget::simulationParametersChanged();
+}
+
+void klogic4::setSimBurstCount(int new_burstCount) {
+    simulationBurstCount = new_burstCount;
+    qDebug() << "simulation burst count changed:" << simulationBurstCount;
+    CircuitWidget::simulationParametersChanged();
+}
+
+int klogic4::getSimulationMode() {
+    return simulationMode;
+}
+
+int klogic4::getSimStepTime() {
+    return simulationStepTime;
+}
+
+int klogic4::getSimBurstCount() {
+    return simulationBurstCount;
+}
+
+/**
+ * [static]
+ * returns the function. consider first, in which mode we are. Function is only vaid if in drop mode!
+ * @return The function (or a mode if not in drop mode!)
+ */
+int klogic4::getFunction() {
+    return function;
+}
+
+/**
+ * [static]
+ * Returns the mode. There are three modes currently.
+ * When in DROP mode, the function specifies in more detail, which drop mode is active (kind of device).
+ * The two other modes are SELECT and CONNECT. Then, the function call becomes invalid somehow.
+ * @return the current mode
+ */
+int klogic4::getMode() {
+    if (function != klogic4::modeCONNECT && function != klogic4::modeSELECT) {
+        return klogic4::modeDROP;
+    }
+    return function;
+}
+
+#include "klogic4.moc"

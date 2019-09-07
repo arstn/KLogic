@@ -1,0 +1,63 @@
+#ifndef __RAMW_CLASS
+#define __RAMW_CLASS
+
+#include<QWidget>
+#include "imageCache.h"
+class QPaintEvent;
+class QCheckBox;
+class QGroupBox;
+class QScrollBar;
+class XDevice;
+class XWire;
+class RAMWidget;
+
+class RAMScrollWidget : public QWidget
+{	Q_OBJECT
+public:
+	RAMScrollWidget(QWidget *, const QString &, XDevice *);
+	~RAMScrollWidget();
+	void setGeometry(int, int, int, int);
+	void paintEvent(QPaintEvent *);
+	void setBitButtons();
+	static int neededWidth();
+	char *getNewRAMContent();
+	void setRAM(char);
+
+private slots:
+	void vScroll(int);
+
+private:
+	void adjustScroll();
+
+	RAMWidget *ramw;
+	QScrollBar *vscroll;
+	int curr_y_size;
+};
+
+
+class RAMWidget : public QWidget
+{	Q_OBJECT
+public:
+	RAMWidget(QWidget *, const QString &, XDevice *);
+	~RAMWidget();
+	void setGeometry(int, int, int, int);
+	void paintEvent(QPaintEvent *);
+	void setBitButtons(int);
+	void removeBitButtons();
+	static int neededWidth();
+	char *getNewRAMContent();
+	void setRAM(char);
+
+private slots:
+	void bitButton(int);
+
+private:
+	int xpos, ypos;
+	int byte_cnt;
+	QGroupBox *bitgroup;
+	QCheckBox *bitswitch[256][8];
+	Image *pix_inputval;
+	char *ram;
+};
+
+#endif

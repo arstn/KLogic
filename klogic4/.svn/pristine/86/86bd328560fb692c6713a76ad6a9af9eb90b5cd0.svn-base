@@ -1,0 +1,100 @@
+#ifndef __SIMWCLASS
+#define __SIMWCLASS
+
+#include <qframe.h>
+#include <circuit.h>
+
+//laurent
+#include <kstatusbar.h>
+class SimW;
+class QScrollBar;
+
+#define  S_CUR1 12000
+#define  S_CUR2 12001
+
+class ScrollableSimw : public QFrame
+{	Q_OBJECT
+public:
+	ScrollableSimw(QString);
+	QFrame * getClientParent();
+	void setClient(SimW *);
+
+	void paintEvent(QPaintEvent *);
+	void resizeEvent(QResizeEvent *);
+	void resizeView();
+	void hide();
+	void show();
+	inline bool isHidden() { return simw_hidden; }
+
+	void setBarCursorInfo(const QString&);
+
+signals:
+	void simWidgetGoesHidden();
+
+private slots:
+	void vScroll(int);
+
+private:
+	QScrollBar *vscroll;
+	KStatusBar *bar;
+
+	SimW *client_widget;
+	QFrame *client_frame;
+	bool simw_hidden;
+};
+
+class SimW : public QFrame
+{	Q_OBJECT
+public:
+	SimW(QFrame *, ScrollableSimw *, Circuit *);
+	~SimW();
+	Circuit * currentNet();
+
+public slots:
+	void simStep();
+	void graphChange();
+	void changeNet(Circuit *);
+
+private:
+	static const int MAXY = 100;
+	int MINX;
+	static const int MAXX = 1024;
+
+	void mousePressEvent( QMouseEvent * );
+        void mouseMoveEvent( QMouseEvent * );
+	void mouseReleaseEvent(QMouseEvent *);
+	void resizeEvent( QResizeEvent * );
+
+	void drawCursor(QPainter &p);
+        void eraseCursor(QPainter &p);
+
+	void paintEvent(QPaintEvent *);
+	inline void get();
+	inline void draw(QPainter &p);
+	inline void erase(QPainter &p);
+	inline void coord(QPainter &p);
+	inline int transval(int);
+
+	int c1x, c2x, activeC, c1x_old, c2x_old;
+	QString info;
+
+	KlogicList<XDevice> ldev;
+	Circuit *net;
+
+	int xmag;
+	int ymag;
+	int ymag_d;
+
+	QPixmap csr_pic;
+
+	char slot[MAXY + 1][MAXX + 100];
+	char oslot[MAXY + 1][MAXX + 100];
+	int slotcnt;
+	int slotwidth;
+	char fill1[MAXX + 100];
+	char fill0[MAXX + 100];
+
+	ScrollableSimw *scrollsimw;
+};
+
+#endif

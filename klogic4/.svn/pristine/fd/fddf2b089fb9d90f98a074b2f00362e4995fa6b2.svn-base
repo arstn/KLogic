@@ -1,0 +1,6 @@
+
+examples_DATA = jk_neg_edge.circuit rs.circuit rs.sub.circuit
+examplesdir = $(kde_datadir)/klogic
+
+messages:
+

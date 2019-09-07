@@ -1,0 +1,272 @@
+/************************************/
+/* methods of RAMWidget             */
+/* methods of RAMScrollWidget        */
+/*                                  */
+/* inverter dialog for devices      */
+/* is part of device prop dialog    */
+/*                                  */
+/* Andreas Rostin                   */
+/* 16.12.98                         */
+/*                                  */
+/* RAMScrollWidget extension:        */
+/* Andreas Rostin                   */
+/* 04.03.2000                       */
+/************************************/
+#include <qwidget.h>
+#include <qdialog.h>
+#include <QGroupBox>
+#include <qcheckbox.h>
+#include <qpaintdevice.h>
+#include <qpainter.h>
+#include <qpixmap.h>
+#include <qscrollbar.h>
+
+#include "ramw.h"
+#include "xdevice.h"
+#include "KlogicGlobal.h"
+#include "tool.h"
+#include "grid.h"
+
+#include "ramw.moc"
+
+// results in a scrollable device widget
+RAMScrollWidget::RAMScrollWidget(QWidget *parent, const QString &name, XDevice *_dev)
+	: QWidget(parent)
+{
+	setWindowTitle(name);
+	curr_y_size = height();
+	vscroll = new QScrollBar(Qt::Vertical, this);
+	vscroll->setMinimum(0);
+	vscroll->setMaximum(195);
+	vscroll->setSingleStep(Grid::GRID);
+	vscroll->setPageStep(16 * Grid::GRID);
+	vscroll->setGeometry(width() - 10, 0, 10, height());
+	vscroll->hide();
+	ramw = new RAMWidget(this, name, _dev);
+	ramw->setBitButtons(height());
+	ramw->show();
+
+	connect(vscroll, SIGNAL(valueChanged(int)), this, SLOT(vScroll(int)));
+}
+
+RAMScrollWidget::~RAMScrollWidget()
+{
+}
+
+void RAMScrollWidget::paintEvent(QPaintEvent *pev)
+{
+	QWidget::paintEvent(pev);
+	adjustScroll();
+	ramw->repaint();
+}
+
+void RAMScrollWidget::setGeometry(int x, int y, int width, int height)
+{
+	QWidget::setGeometry(x, y, width, height);
+	ramw->setGeometry(0, 0, width - 10, height);
+	vscroll->setGeometry(width - 10, 0, 10, height);
+	adjustScroll();
+}
+
+//static
+int RAMScrollWidget::neededWidth()
+{
+	return RAMWidget::neededWidth() + 10;
+}
+
+void RAMScrollWidget::vScroll(int val)
+{
+	ramw->move(0, -1 * val);
+}
+
+void RAMScrollWidget::setBitButtons()
+{
+	ramw->setBitButtons(height());
+}
+
+void RAMScrollWidget::adjustScroll()
+{
+	int ramy = ramw->height();
+	if (ramy != curr_y_size && ramy > height()) {
+		curr_y_size = ramy;
+		vScroll(0);
+		vscroll->setRange(0, ramy - height());
+		vscroll->show();
+	}
+	if (ramy < height()) {
+		curr_y_size = ramy;
+		vScroll(0);
+		vscroll->hide();
+	}
+}
+
+char *RAMScrollWidget::getNewRAMContent()
+{
+	return ramw->getNewRAMContent();
+}
+
+// set each byte of the ram to the given value
+void RAMScrollWidget::setRAM(char bytecontent)
+{
+	ramw->setRAM(bytecontent);
+}
+
+//*****************************************************************************
+//*****************************************************************************
+
+RAMWidget::RAMWidget(QWidget *parent, const QString &name, XDevice *_dev)
+	: QWidget(parent)
+{
+	setWindowTitle(name);
+	setBackgroundRole(QPalette::Base);
+	
+	ram = _dev->getRAMStorageCopy();
+	byte_cnt = _dev->RAMSize();
+	pix_inputval = new Image();
+	pix_inputval->fill();
+
+	for (int i = 0; i < byte_cnt; i++) {
+		for (int j = 0; j < 8; j++) {
+			bitswitch[i][j] = (QCheckBox *)NULL;
+		}
+	}
+	bitgroup = (QGroupBox *)NULL;
+	xpos = 0;
+	ypos = 0;
+}
+
+RAMWidget::~RAMWidget()
+{
+	if (ram) delete [] ram;
+	delete pix_inputval;
+	removeBitButtons();
+}
+
+char * RAMWidget::getNewRAMContent()
+{
+	return ram;
+}
+
+//static
+int RAMWidget::neededWidth()
+{
+	return 12 * 8 + 40;
+}
+
+void RAMWidget::paintEvent(QPaintEvent *pev)
+{
+	QWidget::paintEvent(pev);
+	QPainter p;
+	p.begin(this);
+	p.drawPixmap(0, 0, *pix_inputval);
+	p.end();
+}
+
+void RAMWidget::setGeometry(int x, int y, int width, int height)
+{
+	xpos = x;
+	ypos = y;
+
+	int bwidth = width;	// avoid warning!
+	bwidth = 12;
+	int bheight = height / byte_cnt;
+	if (bheight < 12) {
+		bheight = 12;
+	}
+	QWidget::setGeometry(x, y, bwidth * 8 + 40, bheight * byte_cnt);
+	delete pix_inputval;
+	pix_inputval = new Image(40, bheight * byte_cnt);
+	pix_inputval->fill();
+
+	// display input value in front
+	QPainter p;
+	p.begin(pix_inputval);
+	p.setPen(Qt::black);
+	p.setBrush(Qt::black);
+	p.setFont(QFont( "helvetica", 10, QFont::Bold ) );
+
+	for(int i = 0; i < byte_cnt; i++) {
+		p.drawText(5, (i + 1) * bheight - 1, Tool::bitString((char)i, 5));
+		for(int j = 0; j < 8; j++) {
+			bitswitch[i][j]->setGeometry(40 + j * bwidth, i * bheight, bwidth, bheight);
+		}
+	}
+	p.end();
+}
+
+// slot for setting/resetting a bit
+void RAMWidget::bitButton(int no)
+{
+	int i = no / 8;
+	int j = no % 8;
+	if (bitswitch[i][j]->isChecked()) {
+		ram[i] = ram[i] | Tool::pow2(j);
+	} else {
+		int bitval = Tool::pow2(j);
+		if (ram[i] & bitval) ram[i] -= bitval;
+	}
+}
+
+// init bit buttons
+void RAMWidget::setBitButtons(int height)
+{
+	removeBitButtons();
+
+	bitgroup = new QGroupBox;
+	int bwidth = 12;
+	int bheight = height / byte_cnt;
+	if (bheight < 12) {
+		bheight = 12;
+	}
+	QWidget::setGeometry(xpos, ypos, bwidth * 8 + 40, bheight * byte_cnt);
+	delete pix_inputval;
+	pix_inputval = new Image(40, bheight * byte_cnt);
+	pix_inputval->fill();
+
+	// display input value in front
+	QPainter p;
+	p.begin(pix_inputval);
+	p.setPen(Qt::black);
+	p.setBrush(Qt::black);
+	p.setFont(QFont( "helvetica", 10, QFont::Bold ) );
+
+	for(int i = 0; i < byte_cnt; i++) {
+		p.drawText(5, (i + 1) * bheight - 1, Tool::bitString((char)i, 5));
+
+		// each bit a button: output value
+		for(int j = 0; j < 8; j++) {
+			bitswitch[i][j] = new QCheckBox(bitgroup);
+			bitswitch[i][j]->setGeometry(40 + (7 - j) * bwidth, i * bheight, bwidth, bheight);
+			bitswitch[i][j]->setChecked(ram[i] & Tool::pow2(j));
+			bitswitch[i][j]->show();
+		}
+	}
+	p.end();
+	connect(bitgroup, SIGNAL(clicked(int)), this, SLOT(bitButton(int)));
+}
+
+void RAMWidget::removeBitButtons()
+{
+	if (bitgroup) {
+		for(int i = 0; i < byte_cnt; i++) {
+			for(int j = 0; j < 8; j++) {
+				if (bitswitch[i][j]) {
+					disconnect(bitgroup, SIGNAL(clicked(int)), this, SLOT(bitButton(int)));
+					delete bitswitch[i][j];
+				}
+			}
+		}
+		delete bitgroup;
+	}
+}
+
+// set each byte of the ram to the given value
+void RAMWidget::setRAM(char bytecontent)
+{
+	for(int i = 0; i < byte_cnt; i++) {
+		ram[i] = bytecontent;
+		for(int j = 0; j < 8; j++) {
+			bitswitch[i][j]->setChecked(ram[i] & Tool::pow2(j));
+		}
+	}
+}

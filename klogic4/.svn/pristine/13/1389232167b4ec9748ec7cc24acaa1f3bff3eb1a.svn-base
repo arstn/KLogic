@@ -1,0 +1,267 @@
+/*************************************************/
+/* methods for class ClientW                     */
+/*                                               */
+/* window containing a scrollable logic circuit  */
+/*                                               */
+/* Andreas Rostin                                */
+/* 12.03.99                                      */
+/*************************************************/
+#include <qtoolbar.h>
+#include <qtoolbutton.h>
+
+#include <qframe.h>
+#include <qrect.h>
+#include <qpushbutton.h>
+#include <qframe.h> 
+#include <qpixmap.h> 
+#include <qscrollbar.h>
+#include <QKeyEvent>
+
+#include "klogic4.h"
+#include "KlogicGlobal.h"
+#include "CircuitWidget.h"
+#include "circuit.h"
+#include "clientw.h"
+
+#include "clientw.moc"
+
+/***************************************************/
+/* methods of class ClientW                        */
+/***************************************************/
+// main widget content
+ClientW::ClientW(QFrame *oMainWidget, const QString& sFile)
+	: QFrame(oMainWidget)
+{
+	// init frame content
+	m_poCircuitFrame = new QFrame(this);
+	m_poCircuit = (Circuit *)NULL;
+	m_poCircuitWidget = new CircuitWidget(oMainWidget);
+	connect(m_poCircuitWidget, SIGNAL(autoMove(const QPoint&)), this, SLOT(autoMove(const QPoint&)));
+
+	if (sFile != "") {
+	  m_poCircuitWidget->openCircuit(sFile);
+	}
+
+	initFrame();
+
+	m_poToolbar->hide();
+	m_bIsClient = false;
+
+	initPosition();
+}
+
+// client widget content
+ClientW::ClientW(QFrame *oMainWidget, Circuit *poCircuit)
+	: QFrame(oMainWidget)
+{
+	m_poCircuitFrame = new QFrame(this);
+	m_poCircuit = (Circuit *)NULL;
+	m_poCircuitWidget = new CircuitWidget(this, poCircuit);
+	connect(m_poCircuitWidget, SIGNAL(autoMove(const QPoint&)), this, SLOT(autoMove(const QPoint&)));
+
+	initFrame();
+
+	m_poToolbar->show();
+	m_bIsClient = true;
+
+	initPosition();
+	m_poCircuitWidget->show();
+}
+
+// create client widget elsewhere, content to be created by function (used for libraries!)
+ClientW::ClientW(QFrame *oParentFrame, int iFunction)
+	: QFrame(oParentFrame)
+{
+	m_poCircuitFrame = new QFrame(this);
+	m_poCircuit = new Circuit();
+	m_poCircuit->createDevice(iFunction, QPoint(10, 10));
+	m_poCircuitWidget = new CircuitWidget(this, m_poCircuit);
+	connect(m_poCircuitWidget, SIGNAL(autoMove(const QPoint&)), this, SLOT(autoMove(const QPoint&)));
+
+	initFrame();
+	m_bIsClient = true;
+
+	initPosition();
+	m_poCircuitWidget->show();
+}
+
+void ClientW::initPosition()
+{
+	m_oCircuitPos.setWidth(0);
+	m_oCircuitPos.setHeight(0);
+	setWidgets();
+}
+
+void ClientW::initFrame()
+{
+	setWindowTitle(KlogicGlobal::Klogic::Name + " - " + i18n("subcircuit"));
+
+	setBackgroundRole(QPalette::Base);    // set widgets background
+
+	m_poVScroll = new QScrollBar(Qt::Vertical, this);
+	m_poVScroll->setMaximum(KlogicGlobal::Screen::VIRT_SCREEN_SIZE_Y);
+	m_poVScroll->setPageStep(100);
+	m_poVScroll->setSingleStep(10);
+        connect(m_poVScroll, SIGNAL(valueChanged(int)), this, SLOT(vScroll(int)));
+	
+	m_poHScroll = new QScrollBar(Qt::Vertical, this);
+	m_poHScroll->setMaximum(KlogicGlobal::Screen::VIRT_SCREEN_SIZE_X);
+	m_poHScroll->setPageStep(100);
+	m_poHScroll->setSingleStep(10);
+        connect(m_poHScroll, SIGNAL(valueChanged(int)), this, SLOT(hScroll(int)));
+}
+
+ClientW::~ClientW()
+{
+	if (m_poCircuit)
+		delete m_poCircuit;
+}
+
+void ClientW::show()
+{
+	QFrame::show();
+}
+
+void ClientW::closeEvent(QCloseEvent *e)
+{
+	delete m_poCircuitWidget;
+
+	disconnect(m_poVScroll, SIGNAL(valueChanged(int)), this, SLOT(vScroll(int)));
+	disconnect(m_poHScroll, SIGNAL(valueChanged(int)), this, SLOT(hScroll(int)));
+
+	QFrame::closeEvent(e);
+}
+
+CircuitWidget * ClientW::net()
+{
+	return m_poCircuitWidget;
+}
+
+//slot
+void ClientW::keyPressEvent (QKeyEvent *)
+{
+/*	if (m_bIsClient && m_poMainWidget) {
+		switch (e->key()) {
+		  case Qt::Key_S:
+			m_poMainWidget->setSimulationStepByStep();
+			break;
+		case Qt::Key_M:
+			m_poMainWidget->setSimulationPermanent();
+			break;
+		case Qt::Key_G:
+			m_poMainWidget->openSimulationWindow();
+			break;
+		}
+	}
+*/
+}
+
+// slot
+void ClientW::paintEvent(QPaintEvent *)
+{
+	setWidgets();
+	m_poCircuitWidget->repaint();
+}
+
+// set position of child-widgets and range of scrollbars
+void ClientW::setWidgets()
+{	m_poVScroll->setGeometry(width() - 16, 0, 16, height() - 16 - 0);
+	m_poHScroll->setGeometry(0, height() - 16, width() - 16, 16);
+
+	m_oBorder.setRect(0, 0, width() - 16, height() - 16 - 0);
+	m_poCircuitFrame->setGeometry(m_oBorder);
+	m_poHScroll->setRange(0, KlogicGlobal::Screen::VIRT_SCREEN_SIZE_X - m_oBorder.width());
+	m_poVScroll->setRange(0, KlogicGlobal::Screen::VIRT_SCREEN_SIZE_Y - m_oBorder.height());
+
+	if ((m_oCircuitPos.width() != m_oBorder.width()) || (m_oCircuitPos.height() != m_oBorder.height())) {
+		m_oCircuitPos.setX(m_poHScroll->value());
+		m_oCircuitPos.setWidth(m_oBorder.width());
+		m_oCircuitPos.setY(m_poVScroll->value());
+		m_oCircuitPos.setHeight(m_oBorder.height());
+	}
+}
+
+// slot
+// horizontal scrollbar signaled that value changed
+void ClientW::hScroll(int val)
+{
+	m_oCircuitPos.setX(val);
+	m_oCircuitPos.setWidth(m_oBorder.width());
+	m_poCircuitWidget->move(-1 * m_oCircuitPos.x(), -1 * m_oCircuitPos.y());
+}
+
+// slot
+// vertical scrollbar signaled that value changed
+void ClientW::vScroll(int val)
+{
+	m_oCircuitPos.setY(val);
+	m_oCircuitPos.setHeight(m_oBorder.height());
+	m_poCircuitWidget->move(-1 * m_oCircuitPos.x(), -1 * m_oCircuitPos.y());
+}
+
+// slot
+// switch to parent circuit
+void ClientW::up()
+{
+	m_poCircuitWidget->toParentCircuit();
+	repaint();
+	if (m_poToolbar) {
+		if (!m_poCircuitWidget->getActive()->parent()) m_poToolbar->hide();
+		else m_poToolbar->show();
+	}
+}
+
+// slot
+// scroll automatically if nessecary
+void ClientW::autoMove(const QPoint& oMousePos)
+{
+	// check auto-move x-axis
+	if (oMousePos.x() < m_oCircuitPos.x() + 10) {
+		int iXPos = m_oCircuitPos.x() - 10;
+		if (iXPos < 0)
+			iXPos = 0;
+		m_poHScroll->setValue(iXPos);
+		hScroll(iXPos);
+	}
+	if (oMousePos.x() > m_oCircuitPos.x() + m_oCircuitPos.width() - 10) {
+		int iXPos = m_oCircuitPos.x() + 10;
+		if (iXPos > KlogicGlobal::Screen::VIRT_SCREEN_SIZE_X - m_oBorder.width())
+			iXPos = KlogicGlobal::Screen::VIRT_SCREEN_SIZE_X - m_oBorder.width();
+		m_poHScroll->setValue(iXPos);
+		hScroll(iXPos);
+	}
+
+	// check auto-move y-axis
+	if (oMousePos.y() < m_oCircuitPos.y() + 10) {
+		int iYPos = m_oCircuitPos.y() - 10;
+		if (iYPos < 0)
+			iYPos = 0;
+		m_poVScroll->setValue(iYPos);
+		vScroll(iYPos);
+	}
+	if (oMousePos.y() > m_oCircuitPos.y() + m_oCircuitPos.height() - 10) {
+		int iYPos = m_oCircuitPos.y() + 10;
+		if (iYPos > KlogicGlobal::Screen::VIRT_SCREEN_SIZE_Y - m_oBorder.height())
+			iYPos = KlogicGlobal::Screen::VIRT_SCREEN_SIZE_Y - m_oBorder.height();
+		m_poVScroll->setValue(iYPos);
+		vScroll(iYPos);
+	}
+}
+
+// slot
+// net-widget has a new oCircuit
+void ClientW::netChange(int bHasParent)
+{
+	if (m_poToolbar) {
+		if (bHasParent)
+			m_poToolbar->show();
+		else
+			m_poToolbar->hide();
+	}
+	m_poHScroll->setValue(0);
+	m_poVScroll->setValue(0);
+	hScroll(0);
+	vScroll(0);
+	repaint();
+}
+

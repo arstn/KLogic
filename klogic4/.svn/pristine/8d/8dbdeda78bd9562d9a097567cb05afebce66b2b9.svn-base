@@ -1,0 +1,515 @@
+/*************************************************/
+/* methods for class SimW                        */
+/*                                               */
+/* window displaying logic signal flow           */
+/*                                               */
+/* Andreas Rostin                                */
+/* 15.03.99                                      */
+/*************************************************/
+#include <QBitmap>
+#include <qpainter.h>
+#include <qmenu.h>
+#include <qevent.h>
+#include <qscrollbar.h>
+
+#include <simw.h>
+#include <CircuitWidget.h>
+#include <circuit.h>
+#include <KlogicGlobal.h>
+
+#include "simw.moc"
+
+/***************************************************/
+/* methods for scrooling SimW                      */
+/***************************************************/
+ScrollableSimw::ScrollableSimw(QString name)
+	: QFrame()
+{
+
+	setWindowTitle(name);
+	vscroll = new QScrollBar(Qt::Vertical, this);
+	connect(vscroll, SIGNAL(valueChanged(int)), this, SLOT(vScroll(int)));
+
+	client_widget = (SimW *)NULL;
+	client_frame = new QFrame(this);
+
+	// display cursor possitions
+	bar = new KStatusBar(this);
+	bar->move(0,180);
+
+	client_frame->setGeometry(0, 0, width() - vscroll->width(), height() - bar->height());
+	vscroll->setGeometry(width() - 16, 0, 16, height() - bar->height());
+	simw_hidden = true;
+}
+
+QFrame * ScrollableSimw::getClientParent()
+{
+	return client_frame;
+}
+
+void ScrollableSimw::setClient(SimW *client)
+{
+	client_widget = client;
+}
+
+// virtual
+// signal main widget that the this widget goes hidden
+void ScrollableSimw::hide()
+{
+	emit simWidgetGoesHidden();
+	simw_hidden = true;
+	QWidget::hide();
+}
+
+void ScrollableSimw::show()
+{
+	simw_hidden = false;
+	QWidget::show();
+}
+
+// virtual
+// also repaint the client
+void ScrollableSimw::paintEvent(QPaintEvent *)
+{
+	client_widget->repaint();
+}
+
+// virtual
+// called if this is resized
+void ScrollableSimw::resizeEvent(QResizeEvent *)
+{
+	int myh = height() - bar->height();
+
+	// maximum size = client size
+	int h = client_widget->height();
+	if (h < myh) {
+		resize(width(), h + bar->height());
+	}
+
+	// resize client's width
+	client_widget->resize(width() - 16, client_widget->height());
+
+	// resize all local client widgets
+	vscroll->setGeometry(width() - 16, 0, 16, myh);
+	bar->setGeometry(0, height() - 20, width(), 20);
+	client_frame->resize(width() - vscroll->width(), myh);
+
+	resizeView();
+}
+
+// called by the client widget if it is resized (by it's circuit content)
+void ScrollableSimw::resizeView()
+{
+	if (!client_widget) return;
+
+	int clh = client_widget->height();
+	int myh = height() - bar->height();
+
+	if (clh > myh) {
+		vscroll->show();
+		vscroll->setRange(0, clh - myh);
+	} else {
+		client_widget->move(0, 0);
+		vScroll(0);
+		resize(width(), clh + bar->height());
+		vscroll->hide();
+	}
+
+	if (vscroll->value() > client_widget->x()) {
+		vscroll->setValue(client_widget->x());
+		vScroll(client_widget->x());
+	}
+
+}
+
+// slot
+// vertical scrollbar signaled that value has changed
+// scroll client widget
+void ScrollableSimw::vScroll(int val)
+{
+	client_widget->move(0, -1 * val);
+}
+
+// display cursor positions
+void ScrollableSimw::setBarCursorInfo(const QString&info)
+{
+	bar->showMessage(info);		// TODO: replace with void QStatusBar::addPermanentWidget(label) instead of timeout = 0
+}
+
+/***************************************************/
+/* methods of class SimW                           */
+/***************************************************/
+
+// main widget content
+SimW::SimW(QFrame *_parent, ScrollableSimw *_scrollsimw, Circuit *_net)
+	: QFrame(_parent)
+{
+	scrollsimw = _scrollsimw;
+	
+	setBackgroundRole(QPalette::Base);
+
+	resize(KlogicGlobal::Screen::SCREEN_SIZE_X, 200);		// set widgets size
+
+	net = _net;
+
+	ymag = 30;
+	ymag_d = ymag + ymag / 2 - 8;
+	xmag = 2;
+
+	for (int i = 0; i < 1024; i++) {
+		fill0[i] = 0;
+		fill1[i] = 1;
+	}
+	slotcnt = 0;
+	slotwidth = 0;
+
+	activeC = 0;
+	MINX = 0;
+	c1x = MINX;
+	c1x_old = MINX;
+	c2x = MINX;
+	c2x_old = MINX;
+
+	graphChange();
+	
+	csr_pic = QPixmap((const QPixmap)*(XDevice::m_oBasicImageCache.getImage(BasicImageCache::CURSOR_SIMWIDGET)));
+}
+
+SimW::~SimW()
+{
+}
+
+void SimW::mousePressEvent(QMouseEvent *e)
+{	QPainter p;
+
+	p.begin(this);
+	eraseCursor(p);
+	if ((e->pos().x() - 10 < c1x) && (e->pos().x() + 10 > c1x)) {
+		activeC = 1;
+		c1x = e->pos().x();
+		if (c1x < MINX) c1x = MINX;
+	}
+	else if ((e->pos().x() - 10 < c2x) && (e->pos().x() + 10 > c2x)) {
+		activeC = 2;
+		c2x = e->pos().x();
+		if (c2x < MINX) c2x = MINX;
+	}
+	else activeC = 0;
+
+	if (activeC) {
+		eraseCursor(p);
+		drawCursor(p);
+	}
+	p.end();
+}
+
+void SimW::mouseMoveEvent(QMouseEvent * e)
+{	QPainter p;
+
+	if (activeC) {
+		p.begin(this);
+		eraseCursor(p);
+		if (activeC == 1) c1x = e->pos().x();
+		if (c1x < MINX) c1x = MINX;
+		if (activeC == 2) c2x = e->pos().x();
+		if (c2x < MINX) c2x = MINX;
+		draw(p);
+		coord(p);
+		drawCursor(p);
+		p.end();
+	}
+}
+
+void SimW::mouseReleaseEvent(QMouseEvent *)
+{
+	activeC = 0;
+}
+
+void SimW::resizeEvent( QResizeEvent *)
+{
+	scrollsimw->resizeView();
+}
+
+// slot
+void SimW::paintEvent(QPaintEvent *)
+{	KlogicList<XDevice> *l = ldev.First();
+	int i;
+	
+	// draw slots
+	if (width() != slotwidth) {
+		slotwidth = width();
+		if (slotwidth > 1024) slotwidth = 1024;
+		for(i=0; i < slotcnt; i++)
+			memcpy(slot[i], fill0, slotwidth);
+	}
+
+	// draw slot descriptions
+	QPainter p;
+	p.begin(this);
+	p.setPen(Qt::black);
+	p.setFont(QFont("helvetica", 8, QFont::Bold));
+	i = 0;
+	while(l) {
+		i++;
+		p.drawText(5, ymag + (i * ymag_d) - 6, l->getText());
+		l = l->Next();
+	}
+
+	// draw cursors
+	p.drawPixmap(c1x - 4, 2, csr_pic);
+	p.drawLine(c1x, 10, c1x, 1024);
+	p.drawPixmap(c2x - 4, 2, csr_pic);
+	p.drawLine(c2x, 10, c2x, 1024);
+	draw(p);
+	coord(p);
+	drawCursor(p);
+	p.end();
+	
+	info.sprintf("Cursor 1: %d\t\tCursor 2: %d", transval(c1x), transval(c2x));
+	scrollsimw->setBarCursorInfo(info);
+}
+
+Circuit * SimW::currentNet()
+{
+	return net;
+}
+
+void SimW::changeNet(Circuit *_net)
+{
+	net = _net;
+	graphChange();
+}
+
+// slot
+// actualize list of devices to display
+// calculate new MINX
+// then redraw widget to display the new list
+void SimW::graphChange()
+{
+	for(int i=0; i < slotcnt; i++)
+		memcpy(slot[i], fill0, 1024);
+
+	slotcnt = 0;
+	ldev.Destroy();
+	DeviceList::iterator iter = net->getDeviceIterator();
+	DeviceList::iterator endIter = net->getDeviceEndIterator();
+	while(iter != endIter) {
+		XDevice *dev = iter.getDevice();
+		QString sName = dev->getName();
+
+		if (dev->drawGraph() && dev->graphEnabled()) {
+			if (dev->hasNamedOutput()) {
+				ConnectorList::iterator iter2 = dev->getNamedOutputIterator();
+				iter2++;
+				while (iter2 != dev->getNamedOutputEndIterator()) {
+					Connector& oConnector = *iter2;
+					Calculator *poCalculator = *oConnector;
+					if (!poCalculator->isInternal()) {
+						// estimate the needed text space
+						// better would be a QPainter::boundingRect function here ..
+						sName.append(" (");
+						sName.append(oConnector.getName());
+						sName.append(")");
+						ldev.Append(dev, dev->getID(), oConnector.getConnectorID())->setText(sName);
+						if ((int)sName.length() * 7 > MINX) MINX = sName.length() * 7;
+						slotcnt++;
+						// prevent slot overflow
+						if (slotcnt > MAXY) {
+							if (c1x < MINX) c1x = MINX;
+							if (c2x < MINX) c2x = MINX;
+							// set new height (implicitely calls repaint)
+							int new_height = (ymag_d * (ldev.counter() + 2)) + ymag;
+							if (new_height < 100) new_height = 100;
+							setGeometry(0, 0, width(), new_height);
+							scrollsimw->repaint();
+							return;
+						}
+					}
+					iter2++;
+				}
+			} else {
+				ldev.Append(dev, dev->getID())->setText(sName);
+				if ((int)sName.length() * 7 > MINX) MINX = sName.length() * 7;
+				slotcnt++;
+				// prevent slot overflow
+				if (slotcnt > MAXY) {
+					if (c1x < MINX) c1x = MINX;
+					if (c2x < MINX) c2x = MINX;
+					// set new height (implicitely calls repaint)
+					int new_height = (ymag_d * (ldev.counter() + 2)) + ymag;
+					if (new_height < 100) new_height = 100;
+					setGeometry(0, 0, width(), new_height);
+					scrollsimw->repaint();
+					return;
+				}
+			}
+		}
+		iter++;
+	}
+
+	if (c1x < MINX) c1x = MINX;
+	if (c2x < MINX) c2x = MINX;
+
+	// set new height (implicitely calls repaint)
+	int new_height = (ymag_d * (ldev.counter() + 2)) + ymag;
+	if (new_height < 100) new_height = 100;
+	setGeometry(0, 0, width(), new_height);
+	scrollsimw->repaint();
+}
+
+// slot
+void SimW::simStep()
+{
+	if (scrollsimw->isHidden()) return;
+	if (!slotwidth) return;
+
+	QPainter p;
+	p.begin(this);
+	get();
+	draw(p);
+	erase(p);
+	coord(p);
+	drawCursor(p);
+	p.end();
+}
+
+void SimW::drawCursor(QPainter &p)
+{
+	if (c1x_old != c1x || c2x_old != c2x) {
+		p.setBrush(Qt::white);
+		p.setPen(Qt::white);
+		p.drawRect(MINX - 4, 2, width(), 10); 
+		p.drawPixmap(c1x - 4, 2, csr_pic);
+		p.drawPixmap(c2x - 4, 2, csr_pic);
+		info.sprintf("Cursor 1: %d\t\tCursor 2: %d", transval(c1x), transval(c2x));
+		scrollsimw->setBarCursorInfo(info);
+
+	}
+
+	p.setPen(Qt::black);
+	p.drawLine(c1x, 10, c1x, 1024);
+	p.drawLine(c2x, 10, c2x, 1024);
+	c1x_old = c1x;
+	c2x_old = c2x;
+
+}
+
+void SimW::eraseCursor(QPainter &p)
+{
+	p.setPen(Qt::white);
+	p.drawLine(c1x,10,c1x,1024);
+	p.drawLine(c2x,10,c2x,1024);
+}
+
+
+inline void SimW::get()
+{	KlogicList<XDevice> *ld = ldev.First();
+	int j = 0;
+	int startfill_delta, lenfill;
+
+	startfill_delta = slotwidth - xmag;
+	if (startfill_delta < 0) startfill_delta = 0;
+	lenfill = xmag + 10;
+
+	while(ld) {
+		// move existing values to the left (xmag bytes)
+		memcpy(oslot[j], slot[j], slotwidth);
+		memmove(slot[j], slot[j] + xmag, slotwidth);
+
+		// append new value at the right side (xmag + 10 bytes)
+		if (ld->Get()->invertGraph(ld->Get()->output(ld->getID2()), ld->getID2())) {
+			memcpy(slot[j] + startfill_delta, fill0, lenfill);
+		} else {
+			memcpy(slot[j] + startfill_delta, fill1, lenfill);
+		}
+
+		// next slot and next device
+		j++;
+		ld = ld->Next();
+	}
+}
+
+inline void SimW::draw(QPainter &p)
+{	int i, x, y;
+	int delta;
+	int yval;
+
+	p.setPen(Qt::black);
+	for (i=0; i < slotcnt; i++) {
+		y = (i * ymag_d) + ymag_d;
+		delta = 0;
+		for (x = MINX; x < slotwidth; x ++) {
+			if (slot[i][x] != slot[i][x + 1]) {
+				p.drawLine(x, ymag + y, x, y);
+				yval = slot[i][x] * ymag + y;
+				p.drawLine(x - delta, yval, x, yval);
+				delta = 0;
+			}
+			else delta ++;
+		}
+		if (slot[i][x]) yval = ymag + y;
+		else yval = y;
+		p.drawLine(x - delta, yval, x, yval);
+	}
+}
+
+inline void SimW::erase(QPainter &p)
+{	int i, x, y;
+
+	p.setPen(Qt::white);
+	for (i=0; i < slotcnt; i++) {
+		y = (i * ymag_d) + ymag_d;
+		for (x = MINX; x < slotwidth; x ++) {
+			if ((slot[i][x] != oslot[i][x]) && (slot[i][x + 1] != oslot[i][x])) {
+				if (slot[i][x]) p.drawLine(x, ymag + y - 1, x, y);
+				else p.drawLine(x, ymag + y, x, y + 1);
+			}
+		}
+	}
+}
+
+inline void SimW::coord(QPainter &p)
+{	int i;
+	QString s;
+	int stepn = 0;
+
+	p.setFont(QFont("helvetica", 8, QFont::Bold));
+
+	p.setPen(Qt::black);
+	// x axis
+	p.drawLine(MINX, 30, width(), 30);
+	p.drawText(width() - 30, 20, i18n("step"));
+
+	// y axis
+	p.drawLine(MINX, 30, MINX, height());
+
+	p.setPen(Qt::gray);
+	for(i = (slotwidth - xmag); i > MINX; i -= (xmag * 10)) {
+		p.drawLine(i, 28, i, height());
+	}
+
+	for(i = (slotwidth - xmag); i > MINX; i -= (xmag * 20)) {
+		s.setNum(stepn);
+		if (stepn > -10)
+			p.drawText(i - 5, 26, s);
+		else if (stepn > -100)
+			p.drawText(i - 8, 26, s);
+		else p.drawText(i - 11, 26, s);
+
+		stepn -= 20;
+	}
+}
+
+// transform screen-coordinate into simulation steps
+inline int SimW::transval(int x)
+{	int ret;
+
+
+	// difference of screen coordinate from zero step (must be negative)
+	ret = x - (slotwidth - xmag);
+
+	// 1 step: xmag
+	ret = ret / xmag;
+
+	return ret;
+}

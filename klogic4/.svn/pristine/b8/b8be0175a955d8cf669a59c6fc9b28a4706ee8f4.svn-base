@@ -1,0 +1,59 @@
+#ifndef __DEVW_CLASS
+#define __DEVW_CLASS
+
+class QWidget;
+class QPaintEvent;
+class QCheckBox;
+class QGroupBox;
+class QScrollBar;
+class XWire;
+class InverterWidget;
+
+#include <xdevice.h>
+#include <klogicList.h>
+
+class InverterScrollWidget : public QWidget
+{	Q_OBJECT
+public:
+	InverterScrollWidget(QWidget *, const QString &, XDevice *);
+	~InverterScrollWidget();
+	void setGeometry(int, int, int, int);
+	void paintEvent(QPaintEvent *);
+	void setInputButtons();
+	void setOutputButtons();
+
+private slots:
+	void vScroll(int);
+
+private:
+	InverterWidget *inverterw;
+	QScrollBar *vscroll;
+	XDevice *dev;
+	int curr_y_size;
+};
+
+
+class InverterWidget : public QWidget
+{	Q_OBJECT
+public:
+	InverterWidget(QWidget *, const QString &, XDevice *);
+	~InverterWidget();
+	void paintEvent(QPaintEvent *);
+	void setInputButtons();
+	void setOutputButtons();
+
+private slots:
+	void inputButton(int);
+	void outputButton(int);
+private:
+	XDevice *dev;
+
+	QCheckBox *iswitch[KlogicGlobal::Device::MAXSIZE];
+	KlogicList<XWire> iwire[KlogicGlobal::Device::MAXSIZE];
+	QGroupBox *bg_i;
+	QCheckBox *oswitch[KlogicGlobal::Device::MAXSIZE];
+	KlogicList<XWire> owire[KlogicGlobal::Device::MAXSIZE];
+	QGroupBox *bg_o;
+};
+
+#endif

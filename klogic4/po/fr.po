@@ -1,0 +1,1206 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR Free Software Foundation, Inc.
+# Montel Laurent <montell@club-internet.fr>, 1999.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: klogic 1.5\n"
+"POT-Creation-Date: 2003-04-10 20:14+0200\n"
+"PO-Revision-Date: 1999-05-09 15:04+0100\n"
+"Last-Translator: Montel laurent <montell@club-internet.fr>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: propName.cpp:33 propPwr.cpp:31 propDev.cpp:50 propSwitch.cpp:39
+#: propOsz.cpp:34 dlgLib.cpp:141
+msgid "Name"
+msgstr ""
+
+#: devLib.cpp:123 devLib.cpp:131 devLib.cpp:138 devLib.cpp:145 devLib.cpp:150
+msgid "new library"
+msgstr ""
+
+#: devLib.cpp:124
+msgid ""
+"the file already exists ..\n"
+" press OK to delete it!"
+msgstr ""
+
+#: devLib.cpp:132
+msgid "unable to delete file"
+msgstr ""
+
+#: devLib.cpp:139
+msgid "unable to access lib-file"
+msgstr ""
+
+#: devLib.cpp:146
+msgid "unable to open lib-file"
+msgstr ""
+
+#: devLib.cpp:151
+msgid "unknown problem accessing choosen file"
+msgstr ""
+
+#: devLib.cpp:203 devLib.cpp:207 devLib.cpp:211 devLib.cpp:215 devLib.cpp:219
+msgid "open library"
+msgstr ""
+
+#: devLib.cpp:204
+msgid "file does not exist"
+msgstr ""
+
+#: devLib.cpp:208
+msgid "unable to open file for read/write"
+msgstr ""
+
+#: devLib.cpp:212
+msgid "library parsing error"
+msgstr ""
+
+#: devLib.cpp:216
+msgid "not enough device ID slots (1000)"
+msgstr ""
+
+#: devLib.cpp:220
+msgid "unknown error"
+msgstr ""
+
+#: dlgEqu.cpp:88
+msgid "Circuit Equations"
+msgstr ""
+
+#: dlgEqu.cpp:89
+msgid "Device Equations"
+msgstr ""
+
+#: dlgEqu.cpp:111
+msgid "final"
+msgstr ""
+
+#: dlgEqu.cpp:115
+msgid "internal"
+msgstr ""
+
+#: dlgEqu.cpp:118
+msgid "temporary"
+msgstr ""
+
+#: dlgEqu.cpp:138 dlgEqu.cpp:189 dlgPattern.cpp:39
+msgid "subjunctive"
+msgstr ""
+
+#: dlgEqu.cpp:142 dlgEqu.cpp:193 dlgPattern.cpp:43
+msgid "disjunctive"
+msgstr ""
+
+#: dlgEqu.cpp:145 dlgEqu.cpp:196
+msgid "Normalize"
+msgstr ""
+
+#: dlgEqu.cpp:149
+msgid "show Karnaugh"
+msgstr ""
+
+#: dlgEqu.cpp:164
+msgid "List Methods"
+msgstr ""
+
+#: dlgEqu.cpp:168
+msgid "Substitute"
+msgstr ""
+
+#: dlgEqu.cpp:172
+msgid "Tidy Up"
+msgstr ""
+
+#: dlgEqu.cpp:183
+msgid "replace - with"
+msgstr ""
+
+#: dlgEqu.cpp:201
+msgid "Restore All"
+msgstr ""
+
+#: dlgEqu.cpp:212 dlgEqu.cpp:267
+#, fuzzy
+msgid "Create sub circuit"
+msgstr "&Nouveau sous-circuit"
+
+#: dlgEqu.cpp:268
+msgid ""
+"Creating devices without substitution\n"
+"may result in unuseable devices\n"
+"\n"
+"continue anyway?"
+msgstr ""
+
+#: dlgEqu.cpp:472 dlgEqu.cpp:643
+msgid "Output names cannot contain\n"
+msgstr ""
+
+#: dlgEqu.cpp:474
+msgid " or "
+msgstr ""
+
+#: dlgEqu.cpp:476 dlgEqu.cpp:647
+msgid "Reserved content"
+msgstr ""
+
+#: dlgEqu.cpp:485
+msgid "Change output name"
+msgstr ""
+
+#: dlgEqu.cpp:486 dlgEqu.cpp:638
+msgid "Output name already exists"
+msgstr ""
+
+#: dlgEqu.cpp:638
+msgid "Output names of equation devices must be unique"
+msgstr ""
+
+#: dlgEqu.cpp:777
+msgid "Substitute Equations"
+msgstr ""
+
+#: dlgEqu.cpp:778
+msgid ""
+"This may take a long time ...\n"
+"Try a lower circuit level!\n"
+"continue anyway"
+msgstr ""
+
+#: propPwr.cpp:37
+#, fuzzy
+msgid "output value"
+msgstr "&Sortie"
+
+#: propPwr.cpp:39 propDev.cpp:122 propSwitch.cpp:54 propGlob.cpp:90
+msgid "High"
+msgstr ""
+
+#: propPwr.cpp:41 propDev.cpp:120 propSwitch.cpp:56 propGlob.cpp:88
+msgid "Low"
+msgstr ""
+
+#: propDev.cpp:59
+msgid "Delay"
+msgstr ""
+
+#: propDev.cpp:71
+msgid "display name"
+msgstr ""
+
+#: propDev.cpp:78 propGlob.cpp:106
+msgid "Size"
+msgstr ""
+
+#: propDev.cpp:94
+msgid "Large Width"
+msgstr ""
+
+#: propDev.cpp:108
+#, fuzzy
+msgid "Inverter Setting"
+msgstr "NON"
+
+#: propDev.cpp:118 propGlob.cpp:86
+msgid "Undefined value"
+msgstr ""
+
+#: propDev.cpp:147
+msgid "LED Color"
+msgstr ""
+
+#: propDev.cpp:149
+msgid "red"
+msgstr ""
+
+#: propDev.cpp:151
+msgid "blue"
+msgstr ""
+
+#: propDev.cpp:153
+msgid "green"
+msgstr ""
+
+#: propDev.cpp:155
+msgid "yellow"
+msgstr ""
+
+#: propDev.cpp:182
+msgid "Bus Type"
+msgstr ""
+
+#: propDev.cpp:184
+msgid "Fan in"
+msgstr ""
+
+#: propDev.cpp:186
+msgid "Fan out"
+msgstr ""
+
+#: propDev.cpp:213
+msgid "Output always inverted"
+msgstr ""
+
+#: propDev.cpp:215 propGlob.cpp:74
+msgid "Not inverted"
+msgstr ""
+
+#: propDev.cpp:217 propGlob.cpp:76
+#, fuzzy
+msgid "Inverted"
+msgstr "NON"
+
+#: propDev.cpp:233
+msgid "Tristate outputs"
+msgstr ""
+
+#: propDev.cpp:243
+msgid "Equation Editor"
+msgstr ""
+
+#: propDev.cpp:250
+msgid "Clock Behaviour"
+msgstr ""
+
+#: propDev.cpp:253 propDev.cpp:269 propGlob.cpp:183
+msgid "Rising edge"
+msgstr ""
+
+#: propDev.cpp:255 propDev.cpp:271 propGlob.cpp:185
+msgid "Falling edge"
+msgstr ""
+
+#: propDev.cpp:257
+msgid "Rising 2 edge"
+msgstr ""
+
+#: propDev.cpp:259
+msgid "Falling 2 edge"
+msgstr ""
+
+#: propDev.cpp:261 propDev.cpp:275 propGlob.cpp:187
+msgid "High value"
+msgstr ""
+
+#: propDev.cpp:263 propDev.cpp:277 propGlob.cpp:189
+msgid "Low value"
+msgstr ""
+
+#: propDev.cpp:265 propDev.cpp:279 propDev.cpp:309
+msgid "Disabled"
+msgstr ""
+
+#: propDev.cpp:307
+msgid "Master FF"
+msgstr ""
+
+#: propDev.cpp:311
+msgid "Enabled"
+msgstr ""
+
+#: propDev.cpp:327
+msgid "RAM Content"
+msgstr ""
+
+#: propDev.cpp:333 propDev.cpp:559
+msgid "clear"
+msgstr ""
+
+#: propDev.cpp:458 netw.cpp:1168
+msgid "Device Equation Editor"
+msgstr ""
+
+#: propDev.cpp:555
+msgid "set"
+msgstr ""
+
+#: propSwitch.cpp:45
+msgid "select type"
+msgstr ""
+
+#: propSwitch.cpp:47
+#, fuzzy
+msgid "switch"
+msgstr "Interrupteur"
+
+#: propSwitch.cpp:49
+msgid "push button"
+msgstr ""
+
+#: propSwitch.cpp:52
+msgid "start with value"
+msgstr ""
+
+#: simw.cpp:486
+msgid "step"
+msgstr ""
+
+#: _translatorinfo.cpp:1
+msgid ""
+"_: NAME OF TRANSLATORS\n"
+"Your names"
+msgstr ""
+
+#: _translatorinfo.cpp:3
+msgid ""
+"_: EMAIL OF TRANSLATORS\n"
+"Your emails"
+msgstr ""
+
+#: clientw.cpp:35 clientw.cpp:57 clientw.cpp:79
+#, fuzzy
+msgid "subcircuit"
+msgstr "sous-circuit"
+
+#: clientw.cpp:108
+msgid "up"
+msgstr ""
+
+#: xmlImport.cpp:253
+msgid "unknown tag"
+msgstr ""
+
+#: xmlImport.cpp:276
+msgid "circuit: too few attributes\n"
+msgstr ""
+
+#: xmlImport.cpp:310
+msgid "unable to create circuit device\n"
+msgstr ""
+
+#: xmlImport.cpp:316
+msgid "unable to create circuit\n"
+msgstr ""
+
+#: xmlImport.cpp:347 xmlImport.cpp:389
+msgid "no parent net for device\n"
+msgstr ""
+
+#: xmlImport.cpp:352
+msgid "device: too few attributes\n"
+msgstr ""
+
+#: xmlImport.cpp:367
+msgid "unable to create device (circuit depth "
+msgstr ""
+
+#: xmlImport.cpp:394
+msgid "wire: too few attributes\n"
+msgstr ""
+
+#: xmlImport.cpp:402
+msgid "unable to create wire (circuit depth "
+msgstr ""
+
+#: xmlImport.cpp:417 xmlImport.cpp:445
+msgid "no parent net for wire <--> wire connections\n"
+msgstr ""
+
+#: xmlImport.cpp:422
+msgid "wire<-->wire connection: too few attributes\n"
+msgstr ""
+
+#: xmlImport.cpp:431
+#, c-format
+msgid "unable to retrieve wire for id %d "
+msgstr ""
+
+#: xmlImport.cpp:433 xmlImport.cpp:461
+msgid "(circuit depth "
+msgstr ""
+
+#: xmlImport.cpp:450
+msgid "wire<-->device connection: too few attributes\n"
+msgstr ""
+
+#: xmlImport.cpp:459
+msgid "unable to retrieve wire for id "
+msgstr ""
+
+#: xmlImport.cpp:477
+msgid "position: too few attributes\n"
+msgstr ""
+
+#: xmlImport.cpp:491
+msgid "equ-device output equations: too few attributes\n"
+msgstr ""
+
+#: xmlImport.cpp:504
+msgid "equ-device input name: too few attributes\n"
+msgstr ""
+
+#: xmlImport.cpp:517
+msgid "sub circuit input/output: too few attributes\n"
+msgstr ""
+
+#: xmlImport.cpp:567
+msgid "unable to import wire id"
+msgstr ""
+
+#: xmlImport.cpp:589
+msgid "unable to retrieve second wire for wire<-->wire connection with"
+msgstr ""
+
+#: xmlImport.cpp:600
+msgid "invalid position format for wire<-->wire connection with"
+msgstr ""
+
+#: xmlImport.cpp:614
+msgid "unable to establish wire<-->wire connection with"
+msgstr ""
+
+#: xmlImport.cpp:617 xmlImport.cpp:667
+msgid " in position "
+msgstr ""
+
+#: xmlImport.cpp:641
+msgid "invalid position format for wire<-->dev connection with"
+msgstr ""
+
+#: xmlImport.cpp:654
+msgid "no such wire node "
+msgstr ""
+
+#: xmlImport.cpp:665
+msgid "unable to establish wire<-->dev connection with device id"
+msgstr ""
+
+#: xmlImport.cpp:672
+msgid "for"
+msgstr ""
+
+#: xmlImport.cpp:778
+msgid "ram error: no length\n"
+msgstr ""
+
+#: xmlImport.cpp:789
+msgid "ram error: invalid length\n"
+msgstr ""
+
+#: xmlImport.cpp:866
+msgid "error: tag "
+msgstr ""
+
+#: xmlImport.cpp:868
+msgid " ignored!\n"
+msgstr ""
+
+#: xmlImport.cpp:925
+msgid "unexpected circuit close\n"
+msgstr ""
+
+#: xmlImport.cpp:932
+msgid "unexpected tag close <"
+msgstr ""
+
+#: xmlImport.cpp:939
+msgid "negative tag stack .. while closing <"
+msgstr ""
+
+#: dlgPattern.cpp:49
+msgid "secure"
+msgstr ""
+
+#: dlgPattern.cpp:53
+msgid "insecure"
+msgstr ""
+
+#: dlgPattern.cpp:56
+msgid "Refresh"
+msgstr ""
+
+#: dlgPattern.cpp:154
+msgid "unable to display Karnaugh with more than 6 input variables ...\n"
+msgstr ""
+
+#: klogic.cpp:27
+msgid "file to open"
+msgstr ""
+
+#: klogic.cpp:37
+msgid "digital circuit simulator"
+msgstr ""
+
+#: propGlob.cpp:39
+msgid "Device Default Settings"
+msgstr ""
+
+#: propGlob.cpp:44
+msgid "Default Size"
+msgstr ""
+
+#: propGlob.cpp:54
+msgid "Default Delay"
+msgstr ""
+
+#: propGlob.cpp:62
+msgid "Display Name"
+msgstr ""
+
+#: propGlob.cpp:67
+msgid "Large Sub Circuit Width"
+msgstr ""
+
+#: propGlob.cpp:72
+msgid "Outputs Inverted"
+msgstr ""
+
+#: propGlob.cpp:166
+msgid "Symbol Set"
+msgstr ""
+
+#: propGlob.cpp:168
+msgid "DIN 40900 (europe)"
+msgstr ""
+
+#: propGlob.cpp:170
+msgid "IEC 617"
+msgstr ""
+
+#: propGlob.cpp:180
+msgid "def. trigger (flipflop)"
+msgstr ""
+
+#: propGlob.cpp:193
+msgid "reverse trigger"
+msgstr ""
+
+#: propGlob.cpp:205
+#, fuzzy
+msgid "simulation"
+msgstr "&Simulation"
+
+#: propGlob.cpp:210
+msgid "speed (1/ms)"
+msgstr ""
+
+#: propGlob.cpp:220
+msgid "burst stepping"
+msgstr ""
+
+#: propGlob.cpp:230
+msgid "save file format"
+msgstr ""
+
+#: propGlob.cpp:233
+msgid "XML format"
+msgstr ""
+
+#: propGlob.cpp:235
+msgid "old format"
+msgstr ""
+
+#: netw.cpp:280 netw.cpp:286 netw.cpp:292
+msgid "device failure"
+msgstr ""
+
+#: netw.cpp:280
+msgid ""
+"unable to add more named inputs\n"
+"resize this sub circuit"
+msgstr ""
+
+#: netw.cpp:286
+msgid ""
+"unable to add more named outputs\n"
+"resize this sub circuit"
+msgstr ""
+
+#: netw.cpp:292
+msgid "panic: cannot create device!"
+msgstr ""
+
+#: netw.cpp:486 netw.cpp:491 netw.cpp:496 netw.cpp:501
+msgid "connection failure"
+msgstr ""
+
+#: netw.cpp:487
+msgid "only one output per wire allowed"
+msgstr ""
+
+#: netw.cpp:492
+msgid "maximum number of inputs exeeded"
+msgstr ""
+
+#: netw.cpp:497
+msgid "maximum number of outputs exeeded"
+msgstr ""
+
+#: netw.cpp:502 netw.cpp:1211
+msgid "shortcut\n"
+msgstr ""
+
+#: netw.cpp:643
+msgid "properties"
+msgstr ""
+
+#: netw.cpp:645
+msgid "open"
+msgstr ""
+
+#: netw.cpp:646
+msgid "open in window"
+msgstr ""
+
+#: netw.cpp:647
+msgid "display graph"
+msgstr ""
+
+#: netw.cpp:650
+#, fuzzy
+msgid "equations"
+msgstr "&Simulation"
+
+#: netw.cpp:654
+msgid "hide graph"
+msgstr ""
+
+#: netw.cpp:656
+#, fuzzy
+msgid "show graph"
+msgstr "&Montrer le diagramme"
+
+#: netw.cpp:660
+msgid "add to lib"
+msgstr ""
+
+#: netw.cpp:664 dlgLib.cpp:487 dlgLib.cpp:518
+msgid "remove"
+msgstr ""
+
+#: netw.cpp:772
+msgid "remove device"
+msgstr ""
+
+#: netw.cpp:773
+#, fuzzy
+msgid "remove entire sub-circuit?"
+msgstr ""
+
+#: netw.cpp:800
+msgid "oscillator properties"
+msgstr ""
+
+#: netw.cpp:814
+msgid "text label"
+msgstr ""
+
+#: netw.cpp:825
+msgid "power device properties"
+msgstr ""
+
+#: netw.cpp:840
+msgid "switch device properties"
+msgstr ""
+
+#: netw.cpp:856
+msgid "interface device name"
+msgstr ""
+
+#: netw.cpp:870
+msgid "device properties"
+msgstr ""
+
+#: netw.cpp:956
+#, fuzzy
+msgid "save circuit"
+msgstr ""
+
+#: netw.cpp:957
+msgid ""
+"the current circuit is a sub circuit.\n"
+"save it as a.."
+msgstr ""
+
+#: netw.cpp:958
+#, fuzzy
+msgid "main circuit"
+msgstr ""
+
+#: netw.cpp:959
+#, fuzzy
+msgid "sub circuit"
+msgstr "sous-circuit"
+
+#: netw.cpp:984
+msgid "save error"
+msgstr ""
+
+#: netw.cpp:985
+msgid "unable to write file"
+msgstr ""
+
+#: netw.cpp:1024 netw.cpp:1124
+#, fuzzy
+msgid "new circuit"
+msgstr "&Nouveau sous-circuit"
+
+#: netw.cpp:1025 netw.cpp:1125
+msgid "delete current circuit?"
+msgstr ""
+
+#: netw.cpp:1043 netw.cpp:1074 netw.cpp:1078
+msgid "read error"
+msgstr ""
+
+#: netw.cpp:1044
+msgid "unknown file format"
+msgstr ""
+
+#: netw.cpp:1079
+msgid "unable to read file"
+msgstr ""
+
+#: netw.cpp:1146 netw.cpp:1155
+msgid "Parse circuit equations"
+msgstr ""
+
+#: netw.cpp:1147
+msgid ""
+"There are some non unique device names \n"
+"within your circuit ... \n"
+"\n"
+"rename them automaticly?"
+msgstr ""
+
+#: netw.cpp:1156
+msgid ""
+"Unable to display equations for circuits containing \n"
+"RAM or Tristate devices!"
+msgstr ""
+
+#: netw.cpp:1159
+msgid "Circuit Equation Editor"
+msgstr ""
+
+#: netw.cpp:1210
+msgid "runtime error"
+msgstr ""
+
+#: mainw.cpp:51
+#, fuzzy
+msgid "new.circuit"
+msgstr "&Nouveau sous-circuit"
+
+#: mainw.cpp:125
+msgid "oscillograph"
+msgstr ""
+
+#: mainw.cpp:161
+msgid "circuit has changed.."
+msgstr ""
+
+#: mainw.cpp:162
+msgid "Save current changes?"
+msgstr ""
+
+#: mainw.cpp:184
+msgid "draw wires"
+msgstr ""
+
+#: mainw.cpp:190 mainw.cpp:466
+msgid "Bus Connector"
+msgstr ""
+
+#: mainw.cpp:195
+msgid "select groups"
+msgstr ""
+
+#: mainw.cpp:205
+#, fuzzy
+msgid "new sub-circuit"
+msgstr "Nouveau sous-circuit"
+
+#: mainw.cpp:210
+msgid "equation device"
+msgstr ""
+
+#: mainw.cpp:215
+msgid "AND gate"
+msgstr ""
+
+#: mainw.cpp:220
+msgid "OR gate"
+msgstr ""
+
+#: mainw.cpp:225
+#, fuzzy
+msgid "inverter"
+msgstr "NON"
+
+#: mainw.cpp:230
+msgid "XOR gate"
+msgstr ""
+
+#: mainw.cpp:235
+#, fuzzy
+msgid "RS flipflop"
+msgstr "Bascule &RS"
+
+#: mainw.cpp:240
+#, fuzzy
+msgid "D flipflop"
+msgstr "Bascule &D"
+
+#: mainw.cpp:245
+#, fuzzy
+msgid "JK flipflop"
+msgstr "Bascule &JK"
+
+#: mainw.cpp:250
+msgid "RAM 32x8"
+msgstr ""
+
+#: mainw.cpp:255 mainw.cpp:464
+msgid "Tristate output"
+msgstr ""
+
+#: mainw.cpp:260
+#, fuzzy
+msgid "Oscillator"
+msgstr "Oscillateur"
+
+#: mainw.cpp:265
+#, fuzzy
+msgid "Switch"
+msgstr "Interrupteur"
+
+#: mainw.cpp:270
+#, fuzzy
+msgid "7 Segment"
+msgstr "Afficheur &7 segments"
+
+#: mainw.cpp:275
+#, fuzzy
+msgid "LED"
+msgstr "&LED"
+
+#: mainw.cpp:287
+msgid "Static"
+msgstr ""
+
+#: mainw.cpp:292
+msgid "Text"
+msgstr ""
+
+#: mainw.cpp:297
+#, fuzzy
+msgid "Input"
+msgstr "&Entree"
+
+#: mainw.cpp:303
+#, fuzzy
+msgid "Output"
+msgstr "&Sortie"
+
+#: mainw.cpp:319 dlgLib.cpp:89
+msgid "Library"
+msgstr ""
+
+#: mainw.cpp:328
+msgid "Device"
+msgstr ""
+
+#: mainw.cpp:347
+#, fuzzy
+msgid "simulation graph"
+msgstr "&Simulation"
+
+#: mainw.cpp:355
+msgid "single step simulation"
+msgstr ""
+
+#: mainw.cpp:360
+#, fuzzy
+msgid "simulate"
+msgstr "Si&mulater"
+
+#: mainw.cpp:369
+msgid "speed"
+msgstr ""
+
+#: mainw.cpp:418
+msgid "&New..."
+msgstr "&Nouveau"
+
+#: mainw.cpp:424
+msgid "Save &As..."
+msgstr ""
+
+#: mainw.cpp:427
+msgid "&Library Maintenance .."
+msgstr ""
+
+#: mainw.cpp:433
+msgid "&Exit"
+msgstr "&Quitter"
+
+#: mainw.cpp:441
+msgid "&Connection Mode"
+msgstr ""
+
+#: mainw.cpp:443
+msgid "&Selection Mode"
+msgstr ""
+
+#: mainw.cpp:446
+#, fuzzy
+msgid "&Equation"
+msgstr "&Simulation"
+
+#: mainw.cpp:448
+msgid "&AND"
+msgstr "ET"
+
+#: mainw.cpp:450
+msgid "&OR"
+msgstr "OU"
+
+#: mainw.cpp:452
+msgid "&XOR"
+msgstr "OU exclusif"
+
+#: mainw.cpp:454
+msgid "&Inverter"
+msgstr "NON"
+
+#: mainw.cpp:456
+msgid "&RS flipflop"
+msgstr "Bascule &RS"
+
+#: mainw.cpp:458
+msgid "&D flipflop"
+msgstr "Bascule &D"
+
+#: mainw.cpp:460
+msgid "&JK flipflop"
+msgstr "Bascule &JK"
+
+#: mainw.cpp:462
+msgid "RA&M 32x8"
+msgstr ""
+
+#: mainw.cpp:468
+#, fuzzy
+msgid "Os&cillator"
+msgstr "Oscillateur"
+
+#: mainw.cpp:470
+msgid "&Switch"
+msgstr "Interrupteur"
+
+#: mainw.cpp:472
+msgid "&7-Segment"
+msgstr "Afficheur &7 segments"
+
+#: mainw.cpp:474
+msgid "&LED"
+msgstr "&LED"
+
+#: mainw.cpp:479
+msgid "&Static"
+msgstr ""
+
+#: mainw.cpp:481
+#, fuzzy
+msgid "&Text"
+msgstr "&Quitter"
+
+#: mainw.cpp:484
+msgid "&new sub-circuit"
+msgstr "&Nouveau sous-circuit"
+
+#: mainw.cpp:485
+#, fuzzy
+msgid "&Input"
+msgstr "&Entree"
+
+#: mainw.cpp:486
+#, fuzzy
+msgid "&Output"
+msgstr "&Sortie"
+
+#: mainw.cpp:494
+msgid "Si&mulate"
+msgstr "Si&mulater"
+
+#: mainw.cpp:497
+msgid "&Step through"
+msgstr ""
+
+#: mainw.cpp:500 mainw.cpp:1206
+#, fuzzy
+msgid "Show &Graph"
+msgstr "&Montrer le diagramme"
+
+#: mainw.cpp:503
+msgid "Show &Equations"
+msgstr ""
+
+#: mainw.cpp:507
+#, fuzzy
+msgid "&Global Settings "
+msgstr "&Configuration globale"
+
+#: mainw.cpp:508
+#, fuzzy
+msgid "&Hide Toolbar"
+msgstr "&Barre d'outils"
+
+#: mainw.cpp:513
+msgid "maintenance"
+msgstr ""
+
+#: mainw.cpp:519
+msgid "&Logic"
+msgstr ""
+
+#: mainw.cpp:521
+msgid "&Simulation"
+msgstr "&Simulation"
+
+#: mainw.cpp:673
+msgid "Hide &Graph"
+msgstr ""
+
+#: mainw.cpp:758
+msgid "global settings"
+msgstr "Configuration globale"
+
+#: mainw.cpp:773
+msgid "library maintenance"
+msgstr ""
+
+#: mainw.cpp:891
+#, fuzzy
+msgid "Hide &Toolbar"
+msgstr "&Barre d'outils"
+
+#: propOsz.cpp:40
+msgid "high period"
+msgstr ""
+
+#: propOsz.cpp:48
+msgid "low period"
+msgstr ""
+
+#: propOsz.cpp:54
+msgid "Monoflop"
+msgstr ""
+
+#: dlgLib.cpp:40 dlgLib.cpp:155
+msgid "Author"
+msgstr ""
+
+#: dlgLib.cpp:46 dlgLib.cpp:161
+msgid "Comment"
+msgstr ""
+
+#: dlgLib.cpp:96
+#, fuzzy
+msgid "New"
+msgstr "&Nouveau"
+
+#: dlgLib.cpp:118
+msgid "Add Device"
+msgstr ""
+
+#: dlgLib.cpp:120 dlgLib.cpp:496
+msgid "Choose a Device"
+msgstr ""
+
+#: dlgLib.cpp:127
+msgid "Creation"
+msgstr ""
+
+#: dlgLib.cpp:134
+msgid "Last Update"
+msgstr ""
+
+#: dlgLib.cpp:168
+msgid "Image Path"
+msgstr ""
+
+#: dlgLib.cpp:175
+msgid "not implemented"
+msgstr ""
+
+#: dlgLib.cpp:180
+msgid "Update"
+msgstr ""
+
+#: dlgLib.cpp:186
+msgid "Edit Device"
+msgstr ""
+
+#: dlgLib.cpp:246 dlgLib.cpp:328
+msgid "close library"
+msgstr ""
+
+#: dlgLib.cpp:247 dlgLib.cpp:329
+msgid "save changes in "
+msgstr ""
+
+#: dlgLib.cpp:251 dlgLib.cpp:333
+msgid "save library"
+msgstr ""
+
+#: dlgLib.cpp:252 dlgLib.cpp:334
+msgid "error occured during writing"
+msgstr ""
+
+#: dlgLib.cpp:277
+msgid "Library Meta Data"
+msgstr ""
+
+#: dlgLib.cpp:453
+msgid "device action"
+msgstr ""
+
+#: dlgLib.cpp:454
+msgid "choose a library first!"
+msgstr ""
+
+#: dlgLib.cpp:464 dlgLib.cpp:469
+msgid "add device"
+msgstr ""
+
+#: dlgLib.cpp:465
+msgid "device name already used"
+msgstr ""
+
+#: dlgLib.cpp:470
+msgid "no device id slots left .."
+msgstr ""
+
+#~ msgid "&Open..."
+#~ msgstr "&Ouvrir..."
+
+#~ msgid "&Save"
+#~ msgstr "&Enregistrer"
+
+#~ msgid "&Source"
+#~ msgstr "&Source"
+
+#~ msgid "&Show"
+#~ msgstr "&Montrer"
+
+#~ msgid "&Hide"
+#~ msgstr "&Cacher"
+
+#~ msgid "&About..."
+#~ msgstr "&A propos ..."
+
+#~ msgid "&File"
+#~ msgstr "&Fichier"
+
+#~ msgid "&Options"
+#~ msgstr "&Options"
+
+#~ msgid "&Help"
+#~ msgstr "&Aide"

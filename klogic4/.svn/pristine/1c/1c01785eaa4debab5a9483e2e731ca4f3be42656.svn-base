@@ -1,0 +1,983 @@
+/*******************************************************/
+/* methods for a net-widget                            */
+/*                                                     */
+/* this contains the current active circuit widget,    */
+/* manages various modes, status, drawing and io       */
+/*                                                     */
+/* Andreas Rostin                                      */
+/* 27.10.97                                            */
+/*******************************************************/
+#include <qpainter.h>
+#include <qstring.h>
+#include <qdir.h>
+#include <qmessagebox.h>
+#include <qpushbutton.h>
+#include <QMenu>
+#include <qtimer.h>
+#include <qwidget.h>
+#include <qframe.h>
+#include <qlabel.h>
+#include <qlineedit.h>
+#include <qdialog.h>
+#include <qbuttongroup.h>
+#include <qradiobutton.h>
+#include <qpixmap.h>
+#include <qlabel.h>
+#include <qcombobox.h>
+#include <QMouseEvent>
+#include <qnamespace.h>
+
+#include "klogic4.h"
+#include "CircuitWidget.h"
+#include "KlogicGlobal.h"
+#include "DeviceType.h"
+
+#include "FileIO.h"
+#include "circuit.h"
+#include "xdevice.h"
+#include "selection.h"
+#include "propOsz.h"
+#include "propDev.h"
+#include "propName.h"
+#include "propPwr.h"
+#include "propText.h"
+#include "propSwitch.h"
+#include "dlgEqu.h"
+#include "xmlImport.h"
+#include "grid.h"
+
+#include "CircuitWidget.moc"
+//********************************************
+//* static methods of CircuitWidget              *
+//********************************************
+QTimer CircuitWidget::simTimer;
+QTimer CircuitWidget::shortcutWarningTimer;
+
+//********************************************
+//* methods of CircuitWidget                     *
+//********************************************
+CircuitWidget::CircuitWidget(QWidget *parent) : QFrame(parent) {
+    client = false;
+    XDevice::m_oBasicImageCache.init();
+    initialize(new Circuit());
+}
+
+CircuitWidget::CircuitWidget(QWidget *parent, Circuit *circuit) : QFrame(parent) {
+    client = true;
+    initialize(circuit);
+}
+
+void CircuitWidget::initialize(Circuit *circuit) {
+
+    setBackgroundRole(QPalette::Base);
+    setAutoFillBackground(true);
+    setFrameStyle( QFrame::Panel | QFrame::Raised );
+    resize(KlogicGlobal::Screen::VIRT_SCREEN_SIZE_X, KlogicGlobal::Screen::VIRT_SCREEN_SIZE_Y);                // set default size in pixels
+
+    m_poActiveCircuit = circuit;
+    m_poActiveDevice = (XDevice *)NULL;
+    m_poActiveWire = (XWire *)NULL;
+    m_poActiveSelection = new Selection();
+
+    // popup for the right mouse key (on devices)
+    rpop = new QMenu();
+
+    // popup for the right mouse key (on selections)
+    rselpop = new QMenu();
+    QAction *action;
+    action = rselpop->addAction(i18n("Copy"));
+    connect(action, SIGNAL(triggered(bool)), SLOT (copy()));
+    action = rselpop->addAction(i18n("Paste"));
+    connect(action, SIGNAL(triggered(bool)), SLOT (pasteAt()));
+    action = rselpop->addAction(i18n("Cut"));
+    connect(action, SIGNAL(triggered(bool)), SLOT (cut()));
+
+    setChanged(false);
+    m_bSelMoveCursor = false;
+    m_bRMenuActive = false;
+
+    runtimeShortcutWarning = true;
+
+    connect(&simTimer, SIGNAL(timeout()), this, SLOT(simStep()));
+    connect(&shortcutWarningTimer, SIGNAL(timeout()), this, SLOT(enableShortcutWarning()));
+}
+
+CircuitWidget::~CircuitWidget()
+{
+    if (client) return;
+
+    delete m_poActiveCircuit;
+    delete m_poActiveSelection;
+}
+
+void CircuitWidget::paintEvent(QPaintEvent *event)
+{
+    QFrame::paintEvent(event);
+    
+    int x, y;
+    int x1s, y1s, x2s, y2s;
+    QPainter p;
+
+    x1s = event->rect().x() / Grid::GRID * Grid::GRID - Grid::GRID;
+    x2s = event->rect().width() + event->rect().x();
+    y1s = event->rect().y() / Grid::GRID * Grid::GRID - Grid::GRID;
+    y2s = event->rect().height() +  event->rect().y();
+
+    p.begin(this);
+    
+    // draw the grid
+    p.setPen(Qt::black);
+    for (x = x1s ; x < x2s ;x += Grid::GRID) {
+        for (y = y1s; y < y2s; y += Grid::GRID) {
+            p.drawPoint(x, y);
+	}
+    }
+    
+    // draw the circuit
+    m_poActiveCircuit->draw(this, &p);
+    m_poActiveSelection->draw(&p);
+    
+    p.end();
+}
+
+void CircuitWidget::mousePressEvent( QMouseEvent *e )
+{
+    if (e->button() == Qt::LeftButton) {
+        if (m_bRMenuActive) {
+            m_bRMenuActive = false;
+            return;
+        }
+
+        if (klogic4::getMode() == klogic4::modeCONNECT || klogic4::getMode() == klogic4::modeDROP) {
+            // device clicked? always set active device and return
+            m_poActiveDevice = m_poActiveCircuit->containsDev(e->pos());
+            if (m_poActiveDevice) {
+                m_poActiveDevice->setOrigin();
+
+                // if device is a push button device,  toggle its status
+                if (m_poActiveDevice->isInteractive()) {
+                    m_poActiveDevice->toggleStaticInput();
+                }
+                repaint();
+                return;
+            }
+        }
+
+        if (klogic4::getMode() == klogic4::modeCONNECT && m_poActiveCircuit) {
+            // wire clicked? set active wire
+            m_poActiveWire = m_poActiveCircuit->containsWire(e->pos());
+            if (m_poActiveWire) {
+            	m_poActiveWire->createNode();
+                repaint();
+                return;
+            }
+
+            // nothing clicked? new wire
+            m_poActiveWire = m_poActiveCircuit->newWire(e->pos());
+            if (m_poActiveWire) {
+            	m_poActiveWire->createNode();
+            	setChanged(true);
+                repaint();
+                return;
+            }
+        } else if (klogic4::getMode() == klogic4::modeDROP && m_poActiveCircuit) {
+            // create new device
+            m_poActiveDevice = m_poActiveCircuit->createDevice(klogic4::getFunction(), e->pos());
+            if (!m_poActiveDevice && (klogic4::getFunction() == DeviceType::fIN)) {
+                QMessageBox::warning(parentWidget(), i18n("device failure"), i18n("unable to add more named inputs\nresize this sub circuit"));
+                setChanged(true);
+            } else if (!m_poActiveDevice && (klogic4::getFunction() == DeviceType::fOUT)) {
+                QMessageBox::warning(parentWidget(), i18n("device failure"), i18n("unable to add more named outputs\nresize this sub circuit"));
+                setChanged(true);
+            } else if (!m_poActiveDevice) {
+                qFatal("panic: cannot create device!");
+            }
+            if (m_poActiveCircuit->containsDev(m_poActiveDevice)) {
+            	deleteActiveDevice(false);
+                setChanged(true);
+                return;
+            }
+            m_poActiveDevice->setOrigin();
+            setChanged(true);
+            repaint();
+            if (m_poActiveDevice->drawGraph() && m_poActiveDevice->graphEnabled()) {
+                emit graphChanged();
+            }
+            return;
+        } else if (klogic4::getMode() == klogic4::modeSELECT) {
+            if (m_poActiveSelection->getStatus() == SEL_EXISTS && m_poActiveSelection->onFrame(e->pos())) {
+                // selection move mode
+                m_poActiveSelection->beginMove(e->pos());
+            } else if (m_poActiveSelection->getStatus() == SEL_EXISTS &&  NULL != (m_poActiveDevice = m_poActiveCircuit->containsDev(e->pos()))) {
+                if (m_poActiveSelection->contains(m_poActiveDevice)) {
+                    // selection move mode
+                    m_poActiveSelection->beginMove(e->pos());
+                } else {
+                    // select device, then selection move mode
+                    m_poActiveSelection->addTemp(m_poActiveDevice);
+                    m_poActiveSelection->beginMove(e->pos());
+                }
+            } else {
+                // new selection?
+                m_poActiveSelection->setCircuit(m_poActiveCircuit);
+
+                // select/deselect single device
+                m_poActiveDevice = m_poActiveCircuit->containsDev(e->pos());
+                if (m_poActiveDevice) {
+                    if (m_poActiveSelection->contains(m_poActiveDevice)) m_poActiveSelection->remove(m_poActiveDevice);
+                    else m_poActiveSelection->add(m_poActiveDevice);
+                    m_poActiveDevice = (XDevice *)NULL;
+                    m_poActiveWire = (XWire *)NULL;
+                    repaint();
+                    return;
+                }
+
+                // select/deselect single wire
+                m_poActiveWire = m_poActiveCircuit->containsWire(e->pos());
+                if (m_poActiveWire) {
+                    if (m_poActiveSelection->contains(m_poActiveWire)) m_poActiveSelection->remove(m_poActiveWire);
+                    else m_poActiveSelection->add(m_poActiveWire);
+                    m_poActiveDevice = (XDevice *)NULL;
+                    m_poActiveWire = (XWire *)NULL;
+                    repaint();
+                    return;
+                }
+
+                // group selections
+                m_poActiveSelection->beginFrame(e->pos());
+            }
+            repaint();
+            return;
+        }
+    }
+
+    if (e->button() == Qt::RightButton) {
+        // right clicked in selection mode? open popup to choose operation
+        if (klogic4::getMode() == klogic4::modeSELECT) {
+            m_poActiveSelection->at(e->pos());
+            selRightSelMenu(e);
+            m_bRMenuActive = true;
+            return;
+        }
+
+        // device right clicked? open popup to chooce operation
+        if (NULL != (m_poActiveDevice = m_poActiveCircuit->containsDev(e->pos()))) {
+            selRightMenu(e);
+            m_bRMenuActive = true;
+            return;
+        }
+
+        // right clicked twice?
+        if (m_bRMenuActive) {
+            m_bRMenuActive = false;
+            return;
+        }
+
+        // wire right clicked? remove node
+        if (m_poActiveCircuit->removeNode(e->pos())) {
+            m_poActiveWire = (XWire *)NULL;
+	    setChanged(true);
+        }
+    }
+    repaint();
+}
+
+void CircuitWidget::mouseReleaseEvent( QMouseEvent *e)
+{
+    if (e->button() == Qt::RightButton) {
+    	return;
+    }
+
+    if (klogic4::getMode() == klogic4::modeSELECT) {
+        if (m_poActiveSelection->getStatus() == SEL_START) {	// making frames
+            m_poActiveSelection->endFrame();
+            return;
+        }
+        if (m_poActiveSelection->getStatus() == SEL_MOVE) {	// moving frames or select devices
+            m_poActiveSelection->endMove();
+
+            if (! m_poActiveSelection->hasMoved()) {
+                // select/deselect single device when group was not moved
+                m_poActiveDevice = m_poActiveCircuit->containsDev(e->pos());
+                if (m_poActiveDevice) {
+                    if (m_poActiveSelection->isTemp(m_poActiveDevice)) {
+                    	m_poActiveSelection->fixTemp(m_poActiveDevice);
+                    } else {
+                    	m_poActiveSelection->remove(m_poActiveDevice);
+                    }
+                    m_poActiveDevice = (XDevice *)NULL;
+                    m_poActiveWire = (XWire *)NULL;
+                    m_poActiveDevice = (XDevice *)NULL;
+                    repaint();
+                    return;
+                }
+            }
+            m_poActiveDevice = m_poActiveCircuit->containsDev(e->pos());
+            if (m_poActiveDevice) {
+                // look if some wires want to drop nodes..
+                m_poActiveDevice->garbageCollection();
+                m_poActiveDevice = (XDevice *)NULL;
+                repaint();
+                return;
+            }
+        }
+        return;
+    }
+
+    // check for collision with another device
+    if (m_poActiveDevice) {
+        //look for devices lying in the device
+        if (m_poActiveCircuit->containsDev(m_poActiveDevice)) {
+            m_poActiveDevice->toOrigin();
+        }
+
+        // if device was not moved and it is interactive, toggle its status
+        if (m_poActiveDevice->isInteractive() && m_poActiveDevice->isOrigin(e->pos())) {
+        	if (m_poActiveDevice->isToggle()) {
+        		m_poActiveDevice->toggleStaticInput();
+        	}
+        }
+
+        // look if some wires want to drop nodes..
+        m_poActiveDevice->garbageCollection();
+        m_poActiveDevice = (XDevice *)NULL;
+        setChanged(true);
+    }
+    
+    if (m_poActiveWire) {
+        // check for connection to device or another wire
+        m_poActiveCircuit->checkConnection(m_poActiveWire);
+        m_poActiveCircuit->releaseWire(m_poActiveWire);
+        m_poActiveWire = (XWire *)NULL;
+        setChanged(true);
+    }
+    repaint();
+}
+
+void CircuitWidget::activateSelectionMode(bool activated) {
+    setMouseTracking(activated);
+	if (!activated) {
+        m_poActiveDevice = (XDevice *)NULL;
+        m_poActiveWire = (XWire *)NULL;
+        m_bSelMoveCursor = false;
+        setCursor(Qt::ArrowCursor);
+	}
+}
+
+void CircuitWidget::mouseMoveEvent( QMouseEvent *e )
+{
+    if (klogic4::getMode() == klogic4::modeSELECT) {
+        if (m_poActiveSelection->getStatus() == SEL_EXISTS && m_poActiveSelection->onFrame(e->pos())) {
+            if (!m_bSelMoveCursor) {
+                m_bSelMoveCursor = true;
+                setCursor(Qt::SizeAllCursor);
+            }
+        } else {
+            if (m_bSelMoveCursor) {					// switch selecion cursor
+                m_bSelMoveCursor = false;
+                setCursor(Qt::ArrowCursor);
+            } else if (m_poActiveSelection->getStatus() == SEL_START) {	// make selections
+                emit(autoMove(e->pos()));	// move circuit when nessecary
+                m_poActiveSelection->changeFrame(e->pos());
+				setChanged(true);
+				repaint();
+            } else if (m_poActiveSelection->getStatus() == SEL_MOVE) {		// move selections
+                emit(autoMove(e->pos()));	// move circuit when nessecary
+                m_poActiveSelection->moveFrame(e->pos());
+                setChanged(true);
+                repaint();
+            }
+        }
+    }
+
+    if (m_bRMenuActive) {
+    	return;
+    }
+
+    // move wire/device
+    if (m_poActiveDevice) {
+        emit(autoMove(e->pos()));	// move circuit when nessecary
+
+        if (m_poActiveDevice->moveTo(e->pos())) {
+            setChanged(true);
+            repaint();
+        }
+    }
+    if (m_poActiveWire) {
+        emit(autoMove(e->pos()));	// move if nessecary
+
+        m_poActiveWire->updateNode(e->pos());
+        setChanged(true);
+        repaint();
+    }
+}
+
+void CircuitWidget::mouseDoubleClickEvent( QMouseEvent *e )
+{
+	qDebug() << "mouseDoubleClickEvent";
+    // device clicked?
+    m_poActiveDevice = m_poActiveCircuit->containsDev(e->pos());
+    if (m_poActiveDevice) {
+        if (m_poActiveDevice->type() == DeviceType::fSWI) {
+            m_poActiveDevice = (XDevice *)NULL;
+            return;
+        }
+
+        // if sub circuit is double clicked, open it
+        if (toSubCircuit()) {
+            emit netContentChanged();
+            return;
+        }
+
+        // all other devices: open properties dialogue
+        openActiveDeviceProperties();
+    }
+}
+
+// right mouse button popup entries
+// menu depends on device type
+void CircuitWidget::selRightMenu(QMouseEvent *e)
+{
+    if (!m_poActiveDevice) return;
+
+    rpop->clear();
+    QAction *action;
+    action = rpop->addAction(i18n("properties"));
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(openActiveDeviceProperties()));
+
+    if (m_poActiveDevice->type() == DeviceType::fSUB) {
+        action = rpop->addAction(i18n("open"));
+        connect(action, SIGNAL(triggered(bool)), this, SLOT(toSubCircuit()));
+        action = rpop->addAction(i18n("open in window"));
+        connect(action, SIGNAL(triggered(bool)), this, SLOT(toSubCircuitW()));
+        action = rpop->addAction(i18n("display graph"));
+        connect(action, SIGNAL(triggered(bool)), this, SLOT(addSubCircuitToGraph()));
+    }
+
+    if (m_poActiveDevice->type() == DeviceType::fEQU) {
+        action = rpop->addAction(i18n("equations"));
+        connect(action, SIGNAL(triggered(bool)), this, SLOT(showDeviceEquations()));
+    }
+
+    if (m_poActiveDevice->drawGraph()) {
+        if (m_poActiveDevice->graphEnabled()) {
+            action = rpop->addAction(i18n("hide graph"));
+        } else {
+            action = rpop->addAction(i18n("show graph"));
+        }
+        connect(action, SIGNAL(triggered(bool)), this, SLOT(addActiveDeviceToGraph()));
+    }
+
+    if (m_poActiveDevice->type() == DeviceType::fEQU || m_poActiveDevice->type() == DeviceType::fSUB) {
+        action = rpop->addAction(i18n("add to lib"));
+        connect(action, SIGNAL(triggered(bool)), this, SLOT(addActiveDeviceToLib()));
+    }
+
+    rpop->addSeparator();
+    action = rpop->addAction(i18n("remove"));
+    connect(action, SIGNAL(triggered(bool)), this, SLOT(deleteActiveDevice(bool)));
+
+    rpop->popup(mapToGlobal(e->pos()));
+}
+
+void CircuitWidget::addActiveDeviceToLib() {
+   	emit addToLib(m_poActiveDevice);
+    m_bRMenuActive = false;
+}
+
+void CircuitWidget::addActiveDeviceToGraph() {
+	// toggle graph enabled flag in device
+	m_poActiveDevice->enableGraph(!m_poActiveDevice->graphEnabled());
+	emit graphChanged();
+    m_bRMenuActive = false;
+}
+
+void CircuitWidget::addSubCircuitToGraph() {
+	if (m_poActiveDevice->devIsCircuit()) {
+		emit showGraph(m_poActiveDevice->devIsCircuit());
+	}
+    m_bRMenuActive = false;
+}
+
+// right mouse button popup entries on selections
+void CircuitWidget::selRightSelMenu(QMouseEvent *e)
+{	//(entries are static)
+    rselpop->popup(mapToGlobal(e->pos()));
+    m_bRMenuActive = false;
+}
+
+void CircuitWidget::cut() {
+    m_poActiveSelection->cut(m_poActiveCircuit);
+    setChanged(true);
+    m_bRMenuActive = false;
+}
+
+void CircuitWidget::copy() {
+    m_poActiveSelection->copy(m_poActiveCircuit);
+    m_bRMenuActive = false;
+}
+
+void CircuitWidget::paste() {
+    m_poActiveSelection->at(QPoint(40, 10));
+    pasteAt();
+    m_bRMenuActive = false;
+}
+
+void CircuitWidget::pasteAt() {
+    m_poActiveSelection->paste(m_poActiveCircuit);
+    setChanged(true);
+    m_bRMenuActive = false;
+}
+
+// remove old selections
+void CircuitWidget::removeSelection() {
+    m_poActiveSelection->remove(1);
+    m_bRMenuActive = false;
+}
+
+// remove device
+void CircuitWidget::deleteActiveDevice(bool ask)
+{
+    if (m_poActiveDevice->type() == DeviceType::fSUB) {
+        if (ask) {
+            if (1 == QMessageBox::warning(parentWidget(), i18n("remove device"),
+                                          i18n("remove entire sub-circuit?"), i18n("OK"), i18n("Cancel")))
+            {
+                m_poActiveDevice = (XDevice *)NULL;
+                return;
+            }
+        }
+        emit netDeleted(m_poActiveDevice->devIsCircuit());
+    }
+    m_poActiveCircuit->deleteDevice(m_poActiveDevice);
+    m_poActiveDevice = (XDevice *)NULL;
+
+    setChanged(true);
+    m_bRMenuActive = false;
+}
+
+// open device properties?
+void CircuitWidget::openActiveDeviceProperties()
+{
+    // open properties for oszillators
+    if (m_poActiveDevice->type() == DeviceType::fOSC) {
+        PropOsz *dlg = new PropOsz(parentWidget(), i18n("oscillator properties"), m_poActiveCircuit, m_poActiveDevice);
+        showPropertiesDialog(dlg);
+        delete dlg;
+        m_poActiveDevice = (XDevice *)NULL;
+        setChanged(true);
+    } else if (m_poActiveDevice->type() == DeviceType::fTXT) {
+        // open properties for text devices
+        PropText *dlg = new PropText(parentWidget(), i18n("text label"), m_poActiveCircuit, m_poActiveDevice);
+        showPropertiesDialog(dlg);
+        delete dlg;
+        m_poActiveDevice = (XDevice *)NULL;
+        setChanged(true);
+    } else if (m_poActiveDevice->type() == DeviceType::fPWR) {
+        // open properties for power sources
+        PropPwr *dlg = new PropPwr(parentWidget(), i18n("power device properties"), m_poActiveCircuit, m_poActiveDevice);
+        showPropertiesDialog(dlg);
+        delete dlg;
+        m_poActiveDevice = (XDevice *)NULL;
+        setChanged(true);
+    } else if (m_poActiveDevice->type() == DeviceType::fSWI) {
+        // open properties for switch devices
+        PropSwitch *dlg = new PropSwitch(parentWidget(), i18n("switch device properties"), m_poActiveCircuit, m_poActiveDevice);
+        showPropertiesDialog(dlg);
+        delete dlg;
+        m_poActiveDevice = (XDevice *)NULL;
+        setChanged(true);
+    } else if ((m_poActiveDevice->type() == DeviceType::fIN) ||
+            (m_poActiveDevice->type() == DeviceType::fOUT)) {
+        // open properties for inputs and ouputs
+        PropName *dlg = new PropName(parentWidget(), i18n("interface device name"), this, m_poActiveCircuit, m_poActiveDevice);
+        showPropertiesDialog(dlg);
+        delete dlg;
+        m_poActiveDevice = (XDevice *)NULL;
+        setChanged(true);
+    } else {
+		// open dialog with common device properties
+		PropDev *dlg = new PropDev(parentWidget(), i18n("device properties"),this ,m_poActiveCircuit, m_poActiveDevice);
+		showPropertiesDialog(dlg);
+		delete dlg;
+		m_poActiveDevice = (XDevice *)NULL;
+		setChanged(true);
+    }
+}
+
+void CircuitWidget::showPropertiesDialog(QDialog *dlg) {
+    if (klogic4::getSimulationMode() == klogic4::simModePERMANENT) {
+        simTimer.stop();
+    }
+    dlg->exec();
+    if (klogic4::getSimulationMode() == klogic4::simModePERMANENT) {
+        simTimer.start(klogic4::getSimStepTime());
+    }
+}
+
+// switch to sub circuit in a new window?
+int CircuitWidget::toSubCircuitW()
+{
+    Circuit *new_m_poActiveCircuit;
+
+    if (!m_poActiveDevice) return 0;
+
+    new_m_poActiveCircuit = m_poActiveDevice->devIsCircuit();
+    if (new_m_poActiveCircuit) {
+        // remove the current selection before switching to a new circuit
+        removeSelection();
+        new_m_poActiveCircuit->forceOutputChange();
+        emit createNewWidget(new_m_poActiveCircuit);	// signal goes to main widget (mainw.cpp)
+        return 1;
+    }
+    return 0;
+}
+
+// switch to sub circuit?
+int CircuitWidget::toSubCircuit()
+{
+    Circuit *new_m_poActiveCircuit;
+
+    new_m_poActiveCircuit = m_poActiveDevice->devIsCircuit();
+    if (new_m_poActiveCircuit) {
+        // remove the current selection before switching to a new circuit
+        removeSelection();
+
+        m_poActiveCircuit = new_m_poActiveCircuit;
+        m_poActiveDevice = (XDevice *)NULL;
+        m_poActiveWire = (XWire *)NULL;
+        // signal mainw info about parent or not (changes toolbar)
+        if (m_poActiveCircuit->parent())
+            emit netChanged(1);
+        else
+            emit netChanged(0);
+        m_poActiveCircuit->forceOutputChange();
+        return 1;
+    }
+    return 0;
+}
+
+// switch to parent of active net
+void CircuitWidget::toParentCircuit()
+{
+    Circuit *new_m_poActiveCircuit;
+
+    // remove the current selection before switching to a new circuit
+    removeSelection();
+
+    new_m_poActiveCircuit = m_poActiveCircuit->parent();
+    if (!new_m_poActiveCircuit) {
+        qFatal("no parent net!?");
+        return;
+    }
+    m_poActiveCircuit = new_m_poActiveCircuit;
+    m_poActiveWire = (XWire *)NULL;
+    m_poActiveDevice = (XDevice *)NULL;
+    // ARLOOP repaint();
+    // signal mainw info about having a parent (changes toolbar)
+    if (m_poActiveCircuit->parent())
+        emit netChanged(1);
+    else
+        emit netChanged(0);
+    m_poActiveCircuit->forceOutputChange();
+}
+
+bool CircuitWidget::saveAsSubCircuit()
+{
+    Circuit *_net = m_poActiveCircuit->rootParent();
+
+    _net = m_poActiveCircuit->rootParent();
+    if (_net != m_poActiveCircuit) {
+        int ret = QMessageBox::warning(parentWidget(),
+                                       i18n("save circuit"),
+                                       i18n("the current circuit is a sub circuit.\nsave it as a.."),
+                                       i18n("main circuit"),
+                                       i18n("sub circuit"));
+        if (ret) return true;
+    }
+    return false;
+}
+
+bool CircuitWidget::saveCircuit(QString filename, bool as_sub_net)
+{
+    Circuit *net;
+    int ret;
+
+    if (as_sub_net)
+        net = m_poActiveCircuit;
+    else
+        net = m_poActiveCircuit->rootParent();
+
+    setChanged(false);
+
+    FileIO fileIO(filename, net);
+    if (as_sub_net) fileIO.setSubFilename();
+
+    ret = fileIO.write(as_sub_net, false, 0, 0);
+
+    if (ret <= 0) {
+        QMessageBox::warning(parentWidget(),
+                             i18n("save error"),
+                             i18n("unable to write file"));
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+// load file
+// init: refresh client widget
+// return values:
+// 0: error occured
+// 1: ok, normal circuit
+// 2: ok, subcircuit
+int CircuitWidget::openCircuit(QString filename)
+{
+    Circuit *circuit;
+    QPainter p;
+    bool create_sub = false;
+
+    // -----------------------------------------
+    // check file format
+    // -----------------------------------------
+    FileIO fileIO(filename);
+    int file_type = fileIO.checkFileFormat();
+
+    if (file_type == FileIO::XML_SUB || file_type == FileIO::KLOGIC_SUB) {
+        qDebug() << "SUB import";
+        // -----------------------------------------
+        // is a sub circuit
+        // -----------------------------------------
+        create_sub = true;
+        circuit = m_poActiveCircuit;
+    } else if (file_type == FileIO::XML_MAIN || file_type == FileIO::KLOGIC_MAIN) {
+        qDebug() << "MAIN import";
+        // -----------------------------------------
+        // replace main circuit: ask!
+        // -----------------------------------------
+        if (QMessageBox::Yes != QMessageBox::warning(parentWidget(),
+                    i18n("new circuit"),
+                    i18n("delete current circuit?"),
+                    QMessageBox::Yes,
+                    QMessageBox::No))
+                return 1;
+        circuit = m_poActiveCircuit->rootParent();
+        m_poActiveCircuit = circuit;
+        m_poActiveDevice = (XDevice *)NULL;
+        m_poActiveWire = (XWire *)NULL;
+
+        m_poActiveCircuit->deleteAll();
+        uniqueID::reset();
+        setChanged(false);
+	repaint();
+    } else {
+        QMessageBox::warning(parentWidget(),
+                             i18n("read error"),
+                             i18n("unknown file format"));
+        return 0;
+    }
+
+    if (klogic4::getSimulationMode() == klogic4::simModePERMANENT) {
+        simTimer.stop();
+    }
+    fileIO.setCircuit(circuit);
+
+    // -----------------------------------------
+    // read the file and create the circuit now
+    // -----------------------------------------
+    bool result = false;
+    switch (file_type) {
+    case FileIO::XML_SUB:
+    case FileIO::XML_MAIN:
+        result = fileIO.readXML();
+        break;
+    case FileIO::KLOGIC_SUB:
+    case FileIO::KLOGIC_MAIN:
+        result = fileIO.readCircuit(create_sub);
+        break;
+    }
+
+    if (klogic4::getSimulationMode() == klogic4::simModePERMANENT) {
+        simTimer.start(klogic4::getSimStepTime());
+    }
+
+    // -----------------------------------------
+    // analyze the result
+    // -----------------------------------------
+    if (!result) {
+        if (XMLImportHandler::errorsOccured()) {
+            QMessageBox::warning(parentWidget(),
+                                 i18n("read error"),
+                                 XMLImportHandler::getErrors());
+        } else {
+            QMessageBox::warning(parentWidget(),
+                                 i18n("read error"),
+                                 i18n("unable to read file"));
+        }
+
+        repaint();
+        return 0;
+    }
+
+    // -----------------------------------------
+    // final steps
+    // -----------------------------------------
+    // signal mainw info about having a parent or not (changes toolbar)
+    if (m_poActiveCircuit->parent()) {
+        emit netChanged(1);
+    } else {
+        emit netChanged(0);
+    }
+    
+    // remove useless nodes/wires
+    m_poActiveCircuit->garbageCollection();
+    
+    setChanged(false);
+
+    // redraw everything
+    repaint();
+
+    if (create_sub) {
+    	return 2;
+    }
+    return 1;
+}
+
+int CircuitWidget::newCircuit()
+{
+    if ((isChanged() && !m_poActiveCircuit->empty() &&
+            QMessageBox::Yes == (QMessageBox::warning(parentWidget(),
+                                 i18n("new circuit"),
+                                 i18n("delete current circuit?"),
+                                 QMessageBox::Yes,
+                                 QMessageBox::No))) || (!isChanged())) {
+        m_poActiveCircuit->deleteAll();
+        // ARLOOP repaint();
+        uniqueID::reset();
+	repaint();
+        return 1;
+    }
+    return 0;
+}
+
+// display dialog with the equations of the current circuit
+void CircuitWidget::showCircuitEquations()
+{
+    if (!m_poActiveCircuit->checkCircuitNames()) {
+        if (QMessageBox::No == (QMessageBox::warning(this,
+                                i18n("Parse circuit equations"),
+                                i18n("There are some non unique device names \nwithin your circuit ... \n\nrename them automaticly?"),
+                                QMessageBox::Yes,
+                                QMessageBox::No)))
+            return;
+        m_poActiveCircuit->unifyCircuitNames();
+    }
+    if (m_poActiveCircuit->hasImpossibleEquations()) {
+        QMessageBox::information(this,
+                                 i18n("Parse circuit equations"),
+                                 i18n("Unable to display equations for circuits containing \nRAM or Tristate devices!"));
+        return;
+    }
+    DlgEqu *equation_dialog = new DlgEqu(this, i18n("Circuit Equation Editor"), m_poActiveCircuit);
+    showPropertiesDialog(equation_dialog);
+    delete equation_dialog;
+}
+
+// display dialog with the equations of the active device
+void CircuitWidget::showDeviceEquations()
+{
+    if (!m_poActiveDevice) return;
+    DlgEqu * equation_dialog = new DlgEqu(this, i18n("Device Equation Editor"), m_poActiveDevice);
+    showPropertiesDialog(equation_dialog);
+    delete equation_dialog;
+}
+
+// retrieve the active Circuit
+Circuit *CircuitWidget::getActive()
+{
+    return m_poActiveCircuit;
+}
+
+// check if given net is this or a parent of this
+int CircuitWidget::contained(Circuit *rootnet)
+{
+    Circuit *_rootnet = m_poActiveCircuit;
+
+    if (_rootnet == rootnet) return 1;
+    while (NULL != (_rootnet = _rootnet->parent())) {
+        if (_rootnet == rootnet) return 1;
+    }
+    return 0;
+}
+
+// private slot
+// perform a simulation step
+void CircuitWidget::simStep()
+{
+    if (!client) {
+        // process a simulation step
+        m_poActiveCircuit->rootParent()->Burst(klogic4::getSimBurstCount());
+        repaint();
+        emit simStepped();
+
+		// runtime shortcut occured? TODO: move to elsewhere!
+		if (m_poActiveCircuit->hasShortcut() && runtimeShortcutWarning) {
+			if (klogic4::getSimulationMode() == klogic4::simModePERMANENT) {
+				simTimer.stop();
+			}
+			QMessageBox::warning(parentWidget(),
+								 i18n("runtime error"),
+								 i18n("shortcut\n"));
+			if (klogic4::getSimulationMode() == klogic4::simModePERMANENT) {
+				simTimer.start(klogic4::getSimStepTime());
+			}
+			runtimeShortcutWarning = false;
+			shortcutWarningTimer.setSingleShot(true);
+			shortcutWarningTimer.setInterval(10000);
+			shortcutWarningTimer.start();		// single shot after 20 sec!
+		}
+    }
+}
+
+// private slot
+// enable runtime shortcut warning again, 10sec after the last one
+void CircuitWidget::enableShortcutWarning()
+{
+    runtimeShortcutWarning = true;
+}
+
+// apply device defaults to all existing devices
+void CircuitWidget::applyDefaults()
+{
+    Circuit *toplevel = m_poActiveCircuit->rootParent();
+
+    toplevel->applyDefaults();
+    // ARLOOP repaint();
+}
+
+void CircuitWidget::simulationParametersChanged()
+{
+    // permanent simulation mode
+    if (klogic4::getSimulationMode() == klogic4::simModePERMANENT) {
+        simTimer.start(klogic4::getSimStepTime());
+    } else {
+        simTimer.stop();
+    }
+}
+
+bool CircuitWidget::isChanged()
+{
+    return changed;
+}
+
+void CircuitWidget::setChanged(bool changed)
+{
+    if (changed) {
+		emit netContentChanged();
+		emit graphChanged();
+    } else {
+        emit netContentUnchanged();
+        emit graphChanged();
+    }
+    this->changed = changed;
+}

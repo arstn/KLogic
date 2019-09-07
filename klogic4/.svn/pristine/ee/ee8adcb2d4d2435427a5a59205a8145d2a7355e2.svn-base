@@ -1,0 +1,119 @@
+#ifndef __NETWCLASS
+#define __NETWCLASS
+
+#include <qframe.h>
+#include <QTimer>
+class QPainter;
+class QRect;
+class QMouseEvent;
+class QPaintEvent;
+class QMenu;
+
+class Circuit;
+class XDevice;
+class XWire;
+class Selection;
+
+#define RPOP_DEL	100
+#define RPOP_PROP	101
+#define RPOP_SUB	102
+#define RPOP_SUBW	103
+#define RPOP_GRAPH	104
+#define RPOP_SHOWGRAPH	105
+#define RPOP_EQU	106
+#define RPOP_ADD_LIB	107
+
+class CircuitWidget : public QFrame
+{
+    Q_OBJECT
+public:
+    CircuitWidget(QWidget *);
+    CircuitWidget(QWidget *, Circuit *);
+    ~CircuitWidget();
+
+    static void simulationParametersChanged();
+
+    void toParentCircuit();
+    Circuit *getActive();
+    int contained(Circuit *);
+
+    void activateSelectionMode(bool);
+    void removeSelection();
+
+    bool saveAsSubCircuit();
+    bool saveCircuit(QString, bool);
+    int openCircuit(QString);
+    int newCircuit();
+    void showCircuitEquations();
+    void showDeviceEquations();
+    void applyDefaults();
+    
+    void setChanged(bool);
+    bool isChanged();
+
+protected:
+    void paintEvent(QPaintEvent *);
+    
+signals:
+    void netChanged(int);
+    void netDeleted(Circuit *);
+    void netContentChanged();
+    void netContentUnchanged();
+    void createNewWidget(Circuit *);
+    void simStepped();
+
+    void graphChanged();
+    void showGraph(Circuit *);
+    void addToLib(XDevice *);
+    void autoMove(const QPoint&);
+
+public slots:
+    void simStep();
+    void enableShortcutWarning();
+
+    void cut();
+    void copy();
+    void paste();
+    void pasteAt();
+
+private slots:
+	void deleteActiveDevice(bool);
+    int toSubCircuitW();
+    int toSubCircuit();
+    void openActiveDeviceProperties();
+    void addActiveDeviceToLib();
+    void addSubCircuitToGraph();
+    void addActiveDeviceToGraph();
+
+private:
+    void initialize(Circuit *net);
+
+    void mousePressEvent( QMouseEvent * );
+    void mouseReleaseEvent( QMouseEvent * );
+    void mouseMoveEvent( QMouseEvent * );
+    void mouseDoubleClickEvent( QMouseEvent * );
+    void selRightMenu(QMouseEvent *);
+    void selRightSelMenu(QMouseEvent *);
+
+    void showPropertiesDialog(QDialog *dlg);
+
+    Circuit *m_poActiveCircuit;
+    XDevice *m_poActiveDevice;
+    XWire *m_poActiveWire;
+    Selection *m_poActiveSelection;
+
+    QMenu *rpop;
+    QMenu *rselpop;
+
+    bool changed;
+    bool client;
+    int m_bSelMoveCursor;
+    int m_bRMenuActive;
+
+    bool runtimeShortcutWarning;
+
+    static QTimer simTimer;
+    static QTimer shortcutWarningTimer;
+};
+
+#endif

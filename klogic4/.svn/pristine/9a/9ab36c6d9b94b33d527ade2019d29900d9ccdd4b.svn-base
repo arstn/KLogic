@@ -1,0 +1,53 @@
+#ifndef __CLIENTWCLASS
+#define __CLIENTWCLASS
+
+#include<QFrame>
+class QToolBar;
+class QKeyEvent;
+class QPaintEvent;
+class QScrollBar;
+class QRect;
+class MainWidget;
+class CircuitWidget;
+class QMainWindow;
+
+//************ class *************
+class ClientW : public QFrame
+{	Q_OBJECT
+public:
+	ClientW(QFrame *, const QString& sFile);
+	ClientW(QFrame *, Circuit *);
+	ClientW(QFrame *, int);
+	~ClientW();
+
+	CircuitWidget *net();
+	void show();
+	void closeEvent(QCloseEvent *);
+
+public slots:
+	void hScroll(int);
+	void vScroll(int);
+	void up();
+	void netChange(int);
+	void autoMove(const QPoint&);
+
+private:
+	void initFrame();
+	void initPosition();
+	void keyPressEvent(QKeyEvent *);
+	void paintEvent(QPaintEvent *);
+	void setWidgets();
+
+	bool m_bIsClient;	// not the main window?
+
+	QScrollBar *m_poHScroll;
+	QScrollBar *m_poVScroll;
+
+	QFrame *m_poCircuitFrame;
+	CircuitWidget *m_poCircuitWidget;
+	QToolBar *m_poToolbar;
+	QRect m_oBorder;
+	QRect m_oCircuitPos;
+	Circuit *m_poCircuit;
+};
+#endif

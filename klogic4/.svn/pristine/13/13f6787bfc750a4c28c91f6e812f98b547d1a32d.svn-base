@@ -1,0 +1,268 @@
+/************************************/
+/* methods of InverterWidget             */
+/* methods of InverterScrollWidget        */
+/*                                  */
+/* inverter dialog for devices      */
+/* is part of device prop dialog    */
+/*                                  */
+/* Andreas Rostin                   */
+/* 16.12.98                         */
+/*                                  */
+/* InverterScrollWidget extension:        */
+/* Andreas Rostin                   */
+/* 04.03.2000                       */
+/************************************/
+#include <qwidget.h>
+#include <qdialog.h>
+#include <QGroupBox>
+#include <QVBoxLayout>
+#include <qcheckbox.h>
+#include <qpaintdevice.h>
+#include <qpainter.h>
+#include <qpixmap.h>
+#include <qscrollbar.h>
+
+#include "inverterw.h"
+#include "xdevice.h"
+#include "xwire.h"
+#include "KlogicGlobal.h"
+#include "grid.h"
+
+#include "inverterw.moc"
+
+// results in a scrollable device widget
+InverterScrollWidget::InverterScrollWidget(QWidget *parent, const QString &name, XDevice *_dev)
+	: QWidget(parent)
+{
+	setWindowTitle(name);
+	dev = _dev;
+	curr_y_size = height();
+	//vscroll = new QScrollBar(0, 195, Grid::GRID, 16 * Grid::GRID, 0, QScrollBar::Vertical, this);
+	vscroll = new QScrollBar(Qt::Vertical, this);
+	vscroll->setGeometry(width() - 10, 0, 10, height());
+	vscroll->hide();
+	inverterw = new InverterWidget(this, name, _dev);
+	inverterw->show();
+
+	connect(vscroll, SIGNAL(valueChanged(int)), this, SLOT(vScroll(int)));
+}
+
+InverterScrollWidget::~InverterScrollWidget()
+{
+}
+
+void InverterScrollWidget::paintEvent(QPaintEvent *pev)
+{	int y;
+
+	QWidget::paintEvent(pev);
+	y = dev->getImage()->height();
+	if (y != curr_y_size && y > height()) {
+		curr_y_size = y;
+		inverterw->setGeometry(0, 0, width() - 10, y + 30);
+		vScroll(0);
+		vscroll->setRange(0, y - height() + 30);
+		vscroll->show();
+	}
+	if (y < height()) {
+		curr_y_size = y;
+		vScroll(0);
+		vscroll->hide();
+	}
+	//inverterw->repaint();
+}
+
+void InverterScrollWidget::setGeometry(int x, int y, int width, int height)
+{
+	QWidget::setGeometry(x, y, width, height);
+
+	vscroll->setGeometry(width - 10, 0, 10, height);
+	if (height > curr_y_size) curr_y_size = height;
+	inverterw->setGeometry(0, 0, width - 10, curr_y_size + 30);
+}
+
+void InverterScrollWidget::vScroll(int val)
+{
+	inverterw->move(0, -1 * val);
+}
+
+void InverterScrollWidget::setInputButtons()
+{
+	inverterw->setInputButtons();
+}
+
+void InverterScrollWidget::setOutputButtons()
+{
+	inverterw->setOutputButtons();
+}
+
+//*****************************************************************************
+//*****************************************************************************
+
+InverterWidget::InverterWidget(QWidget *parent, const QString &name, XDevice *_dev)
+	: QWidget(parent)
+{	int i;
+
+	dev = _dev;
+	
+	setWindowTitle(name);
+	setBackgroundRole(QPalette::Base);
+	
+	for (i = 0; i < KlogicGlobal::Device::MAXSIZE; i++) {
+		iswitch[i] = (QCheckBox *)NULL;
+		oswitch[i] = (QCheckBox *)NULL;
+	}
+
+	// set switches for each input
+	bg_i = NULL;
+	setInputButtons();
+	// set switches for each output
+	bg_o = NULL;
+	setOutputButtons();
+}
+
+InverterWidget::~InverterWidget()
+{
+}
+
+void InverterWidget::paintEvent(QPaintEvent *)
+{	QPainter p;
+
+	const Image *poImage = dev->getImage();
+
+	p.begin(this);
+	p.drawPixmap((rect().width() - poImage->width()) / 2, 15 , *poImage);
+	p.setPen(Qt::black);
+	p.drawRect(rect());
+	p.end();
+}
+
+// slot for input-buttons-group
+void InverterWidget::inputButton(int no)
+{	KlogicList<XWire> *lw = iwire[no].First();
+
+	while(lw) {
+		lw->Get()->invertInput(dev, iswitch[no]->isChecked());
+		dev->setImage();
+		lw = lw->Next();
+	}
+	repaint();
+}
+// slot for input-buttons-group
+void InverterWidget::outputButton(int no)
+{	KlogicList<XWire> *lw = owire[no].First();
+
+	while(lw) {
+		lw->Get()->invertOutput(dev, oswitch[no]->isChecked());
+		dev->setImage();
+		lw = lw->Next();
+	}
+	repaint();
+}
+
+void InverterWidget::setInputButtons()
+{	int i = 0;
+	int j, idx;
+	QPoint pt;
+	QPoint re = dev->getPos();
+	int y;
+	KlogicList<XWire> *lw = dev->getIRef()->First();
+	XWire *w;
+	int cnt;
+
+	if (bg_i) {
+		disconnect(bg_i, SIGNAL(clicked(int)), this, SLOT(inputButton(int)));
+		for (i = 0; i < KlogicGlobal::Device::MAXSIZE;i++) {
+			delete iswitch[i];
+			iswitch[i] = (QCheckBox *)NULL;
+			iwire[i].Destroy();
+		}
+		delete bg_i;
+	}
+
+	i = 0;
+	bg_i = new QGroupBox();
+	QVBoxLayout *vbox = new QVBoxLayout;
+	cnt = 0;
+	while (lw && lw->Get()) {
+		w = lw->Get();
+		idx = w->getInputIndex(dev);
+		pt = w->getInputPosition(idx);
+		y =  pt.y() - re.y() + Grid::GRID;
+		// each y only once!
+		for(j=0;((j < i) && y);j++) {
+			if (iswitch[j]->geometry().y() == y) {
+				y = 0;
+				iwire[j].Append(w);
+			}
+		}
+		if (y) {
+			iwire[i].Append(w);
+			iswitch[i] = new QCheckBox(bg_i);
+			iswitch[i]->setGeometry(5, y, 10 , 10);
+			iswitch[i]->setChecked(w->inputIsInverted(dev));
+			vbox->addWidget(iswitch[i], i);
+			i++;
+		}
+		lw = lw->Next();
+	}
+	bg_i->setLayout(vbox);
+	cnt = i;
+	connect(bg_i, SIGNAL(clicked(int)), this, SLOT(inputButton(int)));
+	for (i = 0; i < cnt; i++) {
+		if (iswitch[i]) iswitch[i]->show();
+	}
+}
+
+void InverterWidget::setOutputButtons()
+{	int i = 0;
+	int j, idx;
+	QPoint pt;
+	QPoint re = dev->getPos();
+	int y;
+	KlogicList<XWire> *lw = dev->getORef()->First();
+	XWire *w;
+	int cnt;
+
+	if (bg_o) {
+		disconnect(bg_o, SIGNAL(clicked(int)), this, SLOT(outputButton(int)));
+		for (i = 0; i < KlogicGlobal::Device::MAXSIZE;i++) {
+			delete oswitch[i];
+			oswitch[i] = (QCheckBox *)NULL;
+			owire[i].Destroy();
+		}
+		delete bg_o;
+	}
+
+	i = 0;
+	bg_o = new QGroupBox();
+	QVBoxLayout *vbox = new QVBoxLayout;
+	while (lw && lw->Get()) {
+		w = lw->Get();
+		idx = w->getOutputIndex(dev);
+		pt = w->getOutputPosition(idx);
+		y =  pt.y() - re.y() + Grid::GRID;
+		// each y only once!
+		for(j=0;((j < i) && y);j++) {
+			if (oswitch[j]->geometry().y() == y) {
+				y = 0;
+				owire[j].Append(w);
+			}
+		}
+		if (y) {
+			owire[i].Append(w);
+			oswitch[i] = new QCheckBox(bg_o);
+			oswitch[i]->setGeometry(85, y, 10 , 10);
+			oswitch[i]->setChecked(w->outputIsInverted(dev));
+			vbox->addWidget(oswitch[i], i);
+			i++;
+		}
+		lw = lw->Next();
+	}
+	bg_o->setLayout(vbox);
+	cnt = i;
+	connect(bg_o, SIGNAL(clicked(int)), this, SLOT(outputButton(int)));
+	for (i = 0; i < cnt; i++) {
+		if (oswitch[i]) oswitch[i]->show();
+	}
+}
+

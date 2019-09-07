@@ -1,0 +1,5 @@
+# Hashes of file build rules.
+47de60a867ff99f72f6ac8a9912a9e10 CMakeFiles/uninstall
+2cdfe3928452df88792b7c746433dd3a src/CMakeFiles/klogic_automoc
+ad5509f5c1c8da813de417fba0e9753d src/settings.h
+de764ae347cb16d5a3b33c4035df828f src/ui_NetWidget.h
